@@ -4,7 +4,7 @@ export type ApiClientOptions = Readonly<{ baseUrl?: string | null }>;
 
 type NoExtra<T, U extends T> = U & Record<Exclude<keyof U, keyof T>, never>;
 
-export default class ApiClient {
+export default abstract class AbstractApiClient {
   public readonly baseUrl: string | null;
   protected readonly client: KyInstance;
 
@@ -15,8 +15,11 @@ export default class ApiClient {
       : ky;
   }
 
-  static create<U extends ApiClientOptions>(options: NoExtra<ApiClientOptions, U> = {} as any) {
-    return new ApiClient(options);
+  static create<T extends AbstractApiClient, U extends ApiClientOptions>(
+    this: new (options?: ApiClientOptions) => T,
+    options: NoExtra<ApiClientOptions, U> = {} as NoExtra<ApiClientOptions, U>
+  ): T {
+    return new this(options);
   }
 
   get(path: string, options?: Options) {
