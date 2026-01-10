@@ -1,0 +1,12 @@
+{
+  "version": "0.0.20",
+  "type": "module",
+  "name": "@wexample/js-app",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@wexample/js-helpers": "*"
+  },
+  "repository": "https://github.com/wexample/js-app"
+}
