@@ -8,5 +8,8 @@
   "peerDependencies": {
     "@wexample/js-helpers": "*"
   },
+  "dependencies": {
+    "ky": "^1.4.0"
+  },
   "repository": "https://github.com/wexample/js-api"
 }
