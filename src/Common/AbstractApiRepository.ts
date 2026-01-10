@@ -1,14 +1,21 @@
 import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient';
-import AbstractApiEntity from './AbstractApiEntity';
+import AbstractApiEntity, {
+  type ApiEntityConstructor,
+  type ApiEntityData,
+} from './AbstractApiEntity';
 
-export default abstract class AbstractApiRepository {
+type RepositoryClass<T extends AbstractApiEntity> = {
+  getEntityType(): ApiEntityConstructor<T>;
+};
+
+export default abstract class AbstractApiRepository<T extends AbstractApiEntity = AbstractApiEntity> {
   protected readonly client: AbstractApiEntitiesClient;
 
-  protected constructor(client: AbstractApiEntitiesClient) {
+  constructor(client: AbstractApiEntitiesClient) {
     this.client = client;
   }
 
-  static getEntityType(): typeof AbstractApiEntity {
+  static getEntityType(): ApiEntityConstructor<AbstractApiEntity> {
     throw new Error('Repository must define getEntityType().');
   }
 
@@ -23,17 +30,18 @@ export default abstract class AbstractApiRepository {
     return entityName;
   }
 
-  protected createFromApiItem<T extends AbstractApiEntity>(
-    data: Record<string, any>
-  ): T {
-    const entityType = (this.constructor as typeof AbstractApiRepository).getEntityType();
-    return entityType.fromApi(data) as T;
+  protected getEntityType(): ApiEntityConstructor<T> {
+    const repositoryClass = this.constructor as RepositoryClass<T>;
+    return repositoryClass.getEntityType();
   }
 
-  protected createFromApiCollection<T extends AbstractApiEntity>(
-    collection: Record<string, any>[]
-  ): T[] {
-    return collection.map((item) => this.createFromApiItem<T>(item));
+  protected createFromApiItem(data: ApiEntityData): T {
+    const entityType = this.getEntityType();
+    return entityType.fromApi(data);
+  }
+
+  protected createFromApiCollection(collection: ApiEntityData[]): T[] {
+    return collection.map((item) => this.createFromApiItem(item));
   }
 
   protected buildPath(pathSuffix: string): string {

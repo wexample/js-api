@@ -1,13 +1,16 @@
 import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient';
-import AbstractApiEntity from './AbstractApiEntity';
+import AbstractApiEntity, { type ApiEntityConstructor } from './AbstractApiEntity';
 import AbstractApiRepository from './AbstractApiRepository';
 
-type RepositoryClass = typeof AbstractApiRepository;
+export type RepositoryClass<T extends AbstractApiEntity = AbstractApiEntity> = {
+  new (client: AbstractApiEntitiesClient): AbstractApiRepository<T>;
+  getEntityType(): ApiEntityConstructor<T>;
+};
 
-type RegistryEntry = {
-  entity: typeof AbstractApiEntity;
-  repository: RepositoryClass;
-  instance: AbstractApiRepository | null;
+type RegistryEntry<T extends AbstractApiEntity = AbstractApiEntity> = {
+  entity: ApiEntityConstructor<T>;
+  repository: RepositoryClass<T>;
+  instance: AbstractApiRepository<T> | null;
 };
 
 export default class ApiEntityManager {
@@ -20,7 +23,7 @@ export default class ApiEntityManager {
   }
 
   get<T extends AbstractApiRepository>(
-    entity: string | typeof AbstractApiEntity
+    entity: string | ApiEntityConstructor<AbstractApiEntity>
   ): T {
     const entityName =
       typeof entity === 'string' ? entity : entity.entityName;
@@ -34,9 +37,7 @@ export default class ApiEntityManager {
     }
 
     if (!registryEntry.instance) {
-      const RepositoryClass = registryEntry.repository as new (
-        client: AbstractApiEntitiesClient
-      ) => AbstractApiRepository;
+      const RepositoryClass = registryEntry.repository;
       registryEntry.instance = new RepositoryClass(this.client);
     }
 
