@@ -31,7 +31,12 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
   }
 
   protected getEntityType(): ApiEntityConstructor<T> {
-    const repositoryClass = this.constructor as RepositoryClass<T>;
+    const repositoryClass = this.constructor as unknown as RepositoryClass<T>;
+
+    if (typeof repositoryClass.getEntityType !== 'function') {
+      throw new Error('Repository must implement a static getEntityType().');
+    }
+
     return repositoryClass.getEntityType();
   }
 
