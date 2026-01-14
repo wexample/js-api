@@ -8,6 +8,16 @@ type RepositoryClass<T extends AbstractApiEntity> = {
   getEntityType(): ApiEntityConstructor<T>;
 };
 
+type ApiItemMetadata = Record<string, unknown> | unknown[];
+type ApiItemRelationships = Record<string, unknown> | unknown[];
+type ApiItem = ApiEntityData & {
+  entity?: ApiEntityData;
+  metadata?: ApiItemMetadata;
+  relationships?: ApiItemRelationships;
+};
+type ApiPayload = Record<string, unknown> & { items?: ApiEntityData[] };
+type ApiQuery = Record<string, string | number | boolean>;
+
 export default abstract class AbstractApiRepository<T extends AbstractApiEntity = AbstractApiEntity> {
   protected readonly client: AbstractApiEntitiesClient;
 
@@ -40,17 +50,95 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
     return repositoryClass.getEntityType();
   }
 
-  protected createFromApiItem(data: ApiEntityData): T {
+  protected createFromApiItem(
+    data: ApiEntityData,
+    metadata: ApiItemMetadata = [],
+    relationships: ApiItemRelationships = []
+  ): T {
     const entityType = this.getEntityType();
     return entityType.fromApi(data);
   }
 
   protected createFromApiCollection(collection: ApiEntityData[]): T[] {
-    return collection.map((item) => this.createFromApiItem(item));
+    return collection.map((item) => {
+      const [data, metadata, relationships] = this.splitApiItem(item);
+      return this.createFromApiItem(data, metadata, relationships);
+    });
+  }
+
+  protected splitApiItem(item: ApiEntityData): [ApiEntityData, ApiItemMetadata, ApiItemRelationships] {
+    const apiItem = item as ApiItem;
+    const data =
+      apiItem.entity && typeof apiItem.entity === 'object' ? apiItem.entity : item;
+    const metadata =
+      apiItem.metadata && typeof apiItem.metadata === 'object' ? apiItem.metadata : [];
+    const relationships =
+      apiItem.relationships && typeof apiItem.relationships === 'object'
+        ? apiItem.relationships
+        : [];
+
+    return [data, metadata, relationships];
   }
 
   protected buildPath(pathSuffix: string): string {
     const entityName = (this.constructor as typeof AbstractApiRepository).getEntityName();
     return `${entityName}/${pathSuffix}`;
+  }
+
+  protected extractPayload(data: unknown): ApiEntityData {
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      const record = data as Record<string, unknown>;
+      const payload = record['data'];
+
+      if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+        return payload as ApiEntityData;
+      }
+
+      return record as ApiEntityData;
+    }
+
+    return {};
+  }
+
+  protected extractItems(payload: ApiEntityData): ApiEntityData[] {
+    const items = (payload as ApiPayload)['items'];
+    return Array.isArray(items) ? items : [];
+  }
+
+  async fetchList(
+    query: ApiQuery = {},
+    page: number | null = null,
+    length: number | null = null,
+    endpoint = 'list'
+  ): Promise<T[]> {
+    const searchParams: ApiQuery = { ...query };
+
+    if (page !== null) {
+      searchParams.page = page;
+    }
+
+    if (length !== null) {
+      searchParams.length = length;
+    }
+
+    const data = await this.client
+      .get(this.buildPath(endpoint), { searchParams })
+      .json<unknown>();
+
+    const payload = this.extractPayload(data);
+    const items = this.extractItems(payload);
+
+    return this.createFromApiCollection(items);
+  }
+
+  async fetch(identifier: string, endpoint = 'show'): Promise<T> {
+    const data = await this.client
+      .get(this.buildPath(`${endpoint}/${encodeURIComponent(identifier)}`))
+      .json<unknown>();
+
+    const payload = this.extractPayload(data);
+    const [item, metadata, relationships] = this.splitApiItem(payload);
+
+    return this.createFromApiItem(item, metadata, relationships);
   }
 }
