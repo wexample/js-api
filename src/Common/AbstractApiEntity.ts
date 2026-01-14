@@ -9,11 +9,9 @@ export type ApiEntityConstructor<T extends AbstractApiEntity> = {
 
 export default abstract class AbstractApiEntity {
   static readonly entityName: string;
-  id?: number | string;
   secureId?: string;
 
   protected constructor(data: ApiEntityData = {}) {
-    this.id = data['id'] as number | string | undefined;
     this.secureId = data['secureId'] as string | undefined;
   }
 
