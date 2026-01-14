@@ -56,7 +56,12 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
     relationships: ApiItemRelationships = []
   ): T {
     const entityType = this.getEntityType();
-    return entityType.fromApi(data);
+    const entity = entityType.fromApi(data);
+
+    entity.setMetadata(metadata);
+    entity.setRelationships(this.createRelationships(relationships));
+
+    return entity;
   }
 
   protected createFromApiCollection(collection: ApiEntityData[]): T[] {
@@ -78,6 +83,41 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
         : [];
 
     return [data, metadata, relationships];
+  }
+
+  protected createRelationships(relationships: ApiItemRelationships): AbstractApiEntity[] {
+    if (!Array.isArray(relationships)) {
+      return [];
+    }
+
+    const output: AbstractApiEntity[] = [];
+
+    for (const relationship of relationships) {
+      if (!relationship || typeof relationship !== 'object' || Array.isArray(relationship)) {
+        continue;
+      }
+
+      const entry = relationship as Record<string, unknown>;
+      const type = entry['type'];
+
+      if (typeof type !== 'string' || !type) {
+        continue;
+      }
+
+      const data = entry['entity'] ?? entry['data'] ?? entry;
+
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        continue;
+      }
+
+      delete (data as Record<string, unknown>)['type'];
+
+      const repository = this.client.getRepository(type);
+      const entityType = repository.getEntityType();
+      output.push(entityType.fromApi(data as ApiEntityData));
+    }
+
+    return output;
   }
 
   protected buildPath(pathSuffix: string): string {
