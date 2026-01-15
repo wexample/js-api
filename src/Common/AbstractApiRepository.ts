@@ -17,6 +17,21 @@ type ApiItem = ApiEntityData & {
 };
 type ApiPayload = Record<string, unknown> & { items?: ApiEntityData[] };
 type ApiQuery = Record<string, string | number | boolean>;
+type CreateFromApiItemOptions = {
+  data: ApiEntityData;
+  metadata?: ApiItemMetadata;
+  relationships?: ApiItemRelationships;
+};
+type FetchListOptions = {
+  query?: ApiQuery;
+  page?: number | null;
+  length?: number | null;
+  endpoint?: string;
+};
+type FetchOptions = {
+  identifier: string;
+  endpoint?: string;
+};
 
 export default abstract class AbstractApiRepository<T extends AbstractApiEntity = AbstractApiEntity> {
   protected readonly client: AbstractApiEntitiesClient;
@@ -50,11 +65,8 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
     return repositoryClass.getEntityType();
   }
 
-  protected createFromApiItem(
-    data: ApiEntityData,
-    metadata: ApiItemMetadata = [],
-    relationships: ApiItemRelationships = []
-  ): T {
+  protected createFromApiItem(options: CreateFromApiItemOptions): T {
+    const { data, metadata = [], relationships = [] } = options;
     const entityType = this.getEntityType();
     const entity = entityType.fromApi(data);
 
@@ -67,7 +79,7 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
   protected createFromApiCollection(collection: ApiEntityData[]): T[] {
     return collection.map((item) => {
       const [data, metadata, relationships] = this.splitApiItem(item);
-      return this.createFromApiItem(data, metadata, relationships);
+      return this.createFromApiItem({ data, metadata, relationships });
     });
   }
 
@@ -145,12 +157,13 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
     return Array.isArray(items) ? items : [];
   }
 
-  async fetchList(
-    query: ApiQuery = {},
-    page: number | null = null,
-    length: number | null = null,
-    endpoint = 'list'
-  ): Promise<T[]> {
+  async fetchList(options: FetchListOptions = {}): Promise<T[]> {
+    const {
+      query = {},
+      page = null,
+      length = null,
+      endpoint = 'list',
+    } = options;
     const searchParams: ApiQuery = { ...query };
 
     if (page !== null) {
@@ -162,7 +175,7 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
     }
 
     const data = await this.client
-      .get(this.buildPath(endpoint), { searchParams })
+      .get({ path: this.buildPath(endpoint), options: { searchParams } })
       .json<unknown>();
 
     const payload = this.extractPayload(data);
@@ -171,14 +184,15 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
     return this.createFromApiCollection(items);
   }
 
-  async fetch(identifier: string, endpoint = 'show'): Promise<T> {
+  async fetch(options: FetchOptions): Promise<T> {
+    const { identifier, endpoint = 'show' } = options;
     const data = await this.client
-      .get(this.buildPath(`${endpoint}/${encodeURIComponent(identifier)}`))
+      .get({ path: this.buildPath(`${endpoint}/${encodeURIComponent(identifier)}`) })
       .json<unknown>();
 
     const payload = this.extractPayload(data);
     const [item, metadata, relationships] = this.splitApiItem(payload);
 
-    return this.createFromApiItem(item, metadata, relationships);
+    return this.createFromApiItem({ data: item, metadata, relationships });
   }
 }

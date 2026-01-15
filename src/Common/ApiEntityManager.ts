@@ -7,6 +7,11 @@ export type RepositoryClass<T extends AbstractApiEntity = AbstractApiEntity> = {
   getEntityType(): ApiEntityConstructor<T>;
 };
 
+type ApiEntityManagerOptions = {
+  client: AbstractApiEntitiesClient;
+  repositories: RepositoryClass[];
+};
+
 type RegistryEntry<T extends AbstractApiEntity = AbstractApiEntity> = {
   entity: ApiEntityConstructor<T>;
   repository: RepositoryClass<T>;
@@ -17,9 +22,9 @@ export default class ApiEntityManager {
   private readonly client: AbstractApiEntitiesClient;
   private registry: Record<string, RegistryEntry> = {};
 
-  constructor(client: AbstractApiEntitiesClient, repositories: RepositoryClass[]) {
-    this.client = client;
-    this.buildRegistry(repositories);
+  constructor(options: ApiEntityManagerOptions) {
+    this.client = options.client;
+    this.buildRegistry(options.repositories);
   }
 
   get<T extends AbstractApiRepository>(

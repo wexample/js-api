@@ -7,6 +7,14 @@ export type ApiClientOptions = Readonly<{
 }>;
 
 type NoExtra<T, U extends T> = U & Record<Exclude<keyof U, keyof T>, never>;
+type ApiClientGetOptions = {
+  path: string;
+  options?: Options;
+};
+type SetDefaultHeaderOptions = {
+  name: string;
+  value: string;
+};
 
 export default abstract class AbstractApiClient {
   public readonly baseUrl: string | null;
@@ -47,7 +55,7 @@ export default abstract class AbstractApiClient {
     return new this(options);
   }
 
-  get(path: string, options?: Options) {
+  get({ path, options }: ApiClientGetOptions) {
     return this.client.get(this.normalizePath(path), options);
   }
 
@@ -67,8 +75,8 @@ export default abstract class AbstractApiClient {
     this.defaultHeaders = { ...headers };
   }
 
-  setDefaultHeader(name: string, value: string): void {
-    this.defaultHeaders[name] = value;
+  setDefaultHeader(options: SetDefaultHeaderOptions): void {
+    this.defaultHeaders[options.name] = options.value;
   }
 
   removeDefaultHeader(name: string): void {

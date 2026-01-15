@@ -8,7 +8,10 @@ export default abstract class AbstractApiEntitiesClient extends AbstractApiClien
 
   protected constructor(options: ApiClientOptions = {}) {
     super(options);
-    this.entityManager = new ApiEntityManager(this, this.getRepositoryClasses());
+    this.entityManager = new ApiEntityManager({
+      client: this,
+      repositories: this.getRepositoryClasses(),
+    });
   }
 
   protected abstract getRepositoryClasses(): RepositoryClass[];
