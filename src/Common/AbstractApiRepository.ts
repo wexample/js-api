@@ -132,7 +132,7 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
     return output;
   }
 
-  protected buildPath(pathSuffix: string): string {
+  public buildPath(pathSuffix: string): string {
     const entityName = (this.constructor as typeof AbstractApiRepository).getEntityName();
     return `${entityName}/${pathSuffix}`;
   }
