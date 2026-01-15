@@ -11,6 +11,22 @@ type ApiClientGetOptions = {
   path: string;
   options?: Options;
 };
+type ApiClientPostOptions = {
+  path: string;
+  options?: Options;
+};
+type ApiClientPostFormDataOptions = {
+  path: string;
+  formData: FormData;
+  options?: Options;
+};
+type ApiClientFormDataFromJsonOptions = {
+  path: string;
+  data: unknown;
+  files?: File[];
+  fileKeyPrefix?: string;
+  options?: Options;
+};
 type SetDefaultHeaderOptions = {
   name: string;
   value: string;
@@ -57,6 +73,46 @@ export default abstract class AbstractApiClient {
 
   get({ path, options }: ApiClientGetOptions) {
     return this.client.get(this.normalizePath(path), options);
+  }
+
+  post({ path, options }: ApiClientPostOptions) {
+    return this.client.post(this.normalizePath(path), options);
+  }
+
+  postFormData({ path, formData, options }: ApiClientPostFormDataOptions) {
+    return this.client.post(this.normalizePath(path), {
+      ...options,
+      body: formData,
+    });
+  }
+
+  requestFormDataFromJson({
+    path,
+    data,
+    files,
+    fileKeyPrefix = 'upload_',
+    options,
+  }: ApiClientFormDataFromJsonOptions) {
+    const formData = this.createFormDataWithJson(data, files, fileKeyPrefix);
+    return this.postFormData({ path, formData, options });
+  }
+
+  createFormDataWithJson(
+    data: unknown,
+    files?: File[],
+    fileKeyPrefix: string = 'upload_'
+  ): FormData {
+    const formData = new FormData();
+
+    formData.append('data', JSON.stringify(data ?? {}));
+
+    if (files?.length) {
+      files.forEach((file, index) => {
+        formData.append(`${fileKeyPrefix}${index}`, file);
+      });
+    }
+
+    return formData;
   }
 
   setBearerToken(token: string | null): void {
