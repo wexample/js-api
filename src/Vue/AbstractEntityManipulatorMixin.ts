@@ -1,12 +1,8 @@
-import type AbstractApiEntitiesClient from "../Common/AbstractApiEntitiesClient";
-import type AbstractApiEntity from "../Common/AbstractApiEntity";
-import type { ApiEntityConstructor } from "../Common/AbstractApiEntity";
+import type AbstractApiEntity, { ApiEntityConstructor } from "../Common/AbstractApiEntity";
 import type AbstractApiRepository from "../Common/AbstractApiRepository";
 import type ApiEntityManager from "../Common/ApiEntityManager";
 
-type ApiClientHolder = {
-  $apiClient: AbstractApiEntitiesClient;
-};
+type ApiClientHolder = {};
 
 type EntityManipulatorThis = ApiClientHolder & {
   getEntityClass(): ApiEntityConstructor<AbstractApiEntity>;
@@ -19,7 +15,7 @@ const AbstractEntityManipulatorMixin = {
     },
 
     getEntityManager(this: ApiClientHolder): ApiEntityManager {
-      return this.$apiClient.getEntityManager();
+      return this['app'].getService('api').client.getEntityManager();
     },
 
     getEntityRepository(
@@ -27,7 +23,7 @@ const AbstractEntityManipulatorMixin = {
       entityType?: ApiEntityConstructor<AbstractApiEntity>,
     ): AbstractApiRepository<AbstractApiEntity> {
       const entityClass = entityType ?? this.getEntityClass();
-      return this.$apiClient.getRepository(entityClass);
+      return this['app'].getService('api').client.getRepository(entityClass);
     },
   },
 };
