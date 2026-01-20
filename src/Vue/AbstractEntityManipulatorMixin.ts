@@ -1,4 +1,5 @@
-import type AbstractApiEntity, { ApiEntityConstructor } from "../Common/AbstractApiEntity";
+import type AbstractApiEntity from "../Common/AbstractApiEntity";
+import type { ApiEntityConstructor } from "../Common/AbstractApiEntity";
 import type AbstractApiRepository from "../Common/AbstractApiRepository";
 import type ApiEntityManager from "../Common/ApiEntityManager";
 
