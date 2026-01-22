@@ -1,7 +1,7 @@
-import type AbstractApiEntity from "../Common/AbstractApiEntity";
-import type { ApiEntityConstructor } from "../Common/AbstractApiEntity";
-import type AbstractApiRepository from "../Common/AbstractApiRepository";
-import type ApiEntityManager from "../Common/ApiEntityManager";
+import type AbstractApiEntity from '../Common/AbstractApiEntity';
+import type { ApiEntityConstructor } from '../Common/AbstractApiEntity';
+import type AbstractApiRepository from '../Common/AbstractApiRepository';
+import type ApiEntityManager from '../Common/ApiEntityManager';
 
 type ApiClientHolder = {};
 
@@ -12,7 +12,7 @@ type EntityManipulatorThis = ApiClientHolder & {
 const AbstractEntityManipulatorMixin = {
   methods: {
     getEntityClass(): ApiEntityConstructor<AbstractApiEntity> {
-      throw new Error("getEntityClass() must be implemented.");
+      throw new Error('getEntityClass() must be implemented.');
     },
 
     getEntityManager(this: ApiClientHolder): ApiEntityManager {
@@ -22,7 +22,7 @@ const AbstractEntityManipulatorMixin = {
 
     getEntityRepository(
       this: EntityManipulatorThis,
-      entityType?: ApiEntityConstructor<AbstractApiEntity>,
+      entityType?: ApiEntityConstructor<AbstractApiEntity>
     ): AbstractApiRepository<AbstractApiEntity> {
       // Once migrated to app, we may use ApiService class
       const entityClass = entityType ?? this.getEntityClass();
