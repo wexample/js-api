@@ -47,7 +47,8 @@ export default abstract class AbstractApiRepository<
   }
 
   static getEntityName(): string {
-    const entityType = AbstractApiRepository.getEntityType();
+    const repository = this;
+    const entityType = repository.getEntityType();
     const entityName = entityType.entityName;
 
     if (!entityName) {

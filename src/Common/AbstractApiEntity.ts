@@ -24,8 +24,8 @@ export default abstract class AbstractApiEntity {
     this: ApiEntityConstructor<T>,
     data: ApiEntityData
   ): T {
-    const Ctor: ApiEntityConstructor<T> = this;
-    return new Ctor(data);
+    const ctor: ApiEntityConstructor<T> = this;
+    return new ctor(data);
   }
 
   static fromApiCollection<T extends AbstractApiEntity>(

@@ -70,8 +70,8 @@ export default abstract class AbstractApiClient {
     ) => T,
     options: NoExtra<ApiClientOptions, U> = {} as NoExtra<ApiClientOptions, U>
   ): T {
-    const Ctor: new (options?: ApiClientOptions) => T = this;
-    return new Ctor(options);
+    const ctor: new (options?: ApiClientOptions) => T = this;
+    return new ctor(options);
   }
 
   get({ path, options }: ApiClientGetOptions) {
