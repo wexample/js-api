@@ -33,7 +33,9 @@ type FetchOptions = {
   endpoint?: string;
 };
 
-export default abstract class AbstractApiRepository<T extends AbstractApiEntity = AbstractApiEntity> {
+export default abstract class AbstractApiRepository<
+  T extends AbstractApiEntity = AbstractApiEntity,
+> {
   protected readonly client: AbstractApiEntitiesClient;
 
   constructor(client: AbstractApiEntitiesClient) {
