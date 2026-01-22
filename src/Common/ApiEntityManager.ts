@@ -1,6 +1,7 @@
 import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient';
-import AbstractApiEntity, { type ApiEntityConstructor } from './AbstractApiEntity';
-import AbstractApiRepository from './AbstractApiRepository';
+import type AbstractApiEntity from './AbstractApiEntity';
+import type { ApiEntityConstructor } from './AbstractApiEntity';
+import type AbstractApiRepository from './AbstractApiRepository';
 
 export type RepositoryClass<T extends AbstractApiEntity = AbstractApiEntity> = {
   new (client: AbstractApiEntitiesClient): AbstractApiRepository<T>;
@@ -30,8 +31,7 @@ export default class ApiEntityManager {
   get<T extends AbstractApiRepository>(
     entity: string | ApiEntityConstructor<AbstractApiEntity>
   ): T {
-    const entityName =
-      typeof entity === 'string' ? entity : entity.entityName;
+    const entityName = typeof entity === 'string' ? entity : entity.entityName;
 
     const registryEntry = this.registry[entityName];
 
