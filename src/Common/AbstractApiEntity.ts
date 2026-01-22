@@ -24,15 +24,15 @@ export default abstract class AbstractApiEntity {
     this: ApiEntityConstructor<T>,
     data: ApiEntityData
   ): T {
-    // Keep a local constructor alias so formatters don't replace `this` with the abstract base.
-    const ctor: ApiEntityConstructor<T> = this;
-    return new ctor(data);
+    // biome-ignore lint: keep subclass instantiation with `this`.
+    return new this(data);
   }
 
   static fromApiCollection<T extends AbstractApiEntity>(
     this: ApiEntityConstructor<T>,
     collection: ApiEntityData[]
   ): T[] {
+    // biome-ignore lint: keep subclass behavior via `this`.
     return collection.map((item) => this.fromApi(item));
   }
 

@@ -47,9 +47,8 @@ export default abstract class AbstractApiRepository<
   }
 
   static getEntityName(): string {
-    // Keep a local class alias so formatters don't replace `this` with the abstract base.
-    const repository = this;
-    const entityType = repository.getEntityType();
+    // biome-ignore lint: keep subclass behavior via `this`.
+    const entityType = this.getEntityType();
     const entityName = entityType.entityName;
 
     if (!entityName) {
