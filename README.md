@@ -125,6 +125,11 @@ This package is part of the Wexample suite and is compatible with other suite pa
 
 Refer to each package's documentation for specific version compatibility requirements.
 
+## Dependencies
+
+- ky: ^1.4.0
+
+
 # About us
 
 [Wexample](https://wexample.com) stands as a cornerstone of the digital ecosystem — a collective of seasoned engineers, researchers, and creators driven by a relentless pursuit of technological excellence. More than a media platform, it has grown into a vibrant community where innovation meets craftsmanship, and where every line of code reflects a commitment to clarity, durability, and shared intelligence.
