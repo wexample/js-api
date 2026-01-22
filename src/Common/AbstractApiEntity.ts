@@ -51,7 +51,8 @@ export default abstract class AbstractApiEntity {
 
       if (
         AbstractApiEntity.normalizeRelationshipName(entityName) === normalizedTarget ||
-        AbstractApiEntity.normalizeRelationshipName(relationshipConstructor.name) === normalizedTarget
+        AbstractApiEntity.normalizeRelationshipName(relationshipConstructor.name) ===
+          normalizedTarget
       ) {
         return relationship;
       }
