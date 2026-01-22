@@ -11,7 +11,7 @@
     "declarationMap": false,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
+    "baseUrl": "."
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules"]
