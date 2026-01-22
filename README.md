@@ -1,6 +1,6 @@
-# @wexample/js-app
+# @wexample/js-api
 
-Version: 0.0.20
+Version: 0.0.2
 
 ## Table of Contents
 
@@ -124,6 +124,11 @@ Visit the [Wexample Suite documentation](https://docs.wexample.com) for the comp
 This package is part of the Wexample suite and is compatible with other suite packages.
 
 Refer to each package's documentation for specific version compatibility requirements.
+
+## Dependencies
+
+- ky: ^1.4.0
+
 
 # About us
 
