@@ -15,7 +15,7 @@ export default abstract class AbstractApiEntity {
   relationships: AbstractApiEntity[];
 
   protected constructor(data: ApiEntityData = {}) {
-    this.secureId = data['secureId'] as string | undefined;
+    this.secureId = data.secureId as string | undefined;
     this.metadata = [];
     this.relationships = [];
   }
@@ -46,12 +46,12 @@ export default abstract class AbstractApiEntity {
     const normalizedTarget = AbstractApiEntity.normalizeRelationshipName(name);
 
     for (const relationship of this.relationships) {
-      const constructor = relationship.constructor as typeof AbstractApiEntity;
-      const entityName = constructor.entityName;
+      const relationshipConstructor = relationship.constructor as typeof AbstractApiEntity;
+      const entityName = relationshipConstructor.entityName;
 
       if (
         AbstractApiEntity.normalizeRelationshipName(entityName) === normalizedTarget ||
-        AbstractApiEntity.normalizeRelationshipName(constructor.name) === normalizedTarget
+        AbstractApiEntity.normalizeRelationshipName(relationshipConstructor.name) === normalizedTarget
       ) {
         return relationship;
       }
