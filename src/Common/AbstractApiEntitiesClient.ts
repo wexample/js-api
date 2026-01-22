@@ -1,5 +1,6 @@
 import AbstractApiClient, { type ApiClientOptions } from './AbstractApiClient';
-import AbstractApiEntity, { type ApiEntityConstructor } from './AbstractApiEntity';
+import type AbstractApiEntity from './AbstractApiEntity';
+import type { ApiEntityConstructor } from './AbstractApiEntity';
 import type AbstractApiRepository from './AbstractApiRepository';
 import ApiEntityManager, { type RepositoryClass } from './ApiEntityManager';
 

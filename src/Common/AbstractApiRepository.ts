@@ -83,10 +83,11 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
     });
   }
 
-  protected splitApiItem(item: ApiEntityData): [ApiEntityData, ApiItemMetadata, ApiItemRelationships] {
+  protected splitApiItem(
+    item: ApiEntityData
+  ): [ApiEntityData, ApiItemMetadata, ApiItemRelationships] {
     const apiItem = item as ApiItem;
-    const data =
-      apiItem.entity && typeof apiItem.entity === 'object' ? apiItem.entity : item;
+    const data = apiItem.entity && typeof apiItem.entity === 'object' ? apiItem.entity : item;
     const metadata =
       apiItem.metadata && typeof apiItem.metadata === 'object' ? apiItem.metadata : [];
     const relationships =
@@ -158,12 +159,7 @@ export default abstract class AbstractApiRepository<T extends AbstractApiEntity 
   }
 
   async fetchList(options: FetchListOptions = {}): Promise<T[]> {
-    const {
-      query = {},
-      page = null,
-      length = null,
-      endpoint = 'list',
-    } = options;
+    const { query = {}, page = null, length = null, endpoint = 'list' } = options;
     const searchParams: ApiQuery = { ...query };
 
     if (page !== null) {
