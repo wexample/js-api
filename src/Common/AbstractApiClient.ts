@@ -70,6 +70,7 @@ export default abstract class AbstractApiClient {
     ) => T,
     options: NoExtra<ApiClientOptions, U> = {} as NoExtra<ApiClientOptions, U>
   ): T {
+    // Keep a local constructor alias so formatters don't replace `this` with the abstract base.
     const ctor: new (options?: ApiClientOptions) => T = this;
     return new ctor(options);
   }

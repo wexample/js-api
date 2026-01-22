@@ -47,6 +47,7 @@ export default abstract class AbstractApiRepository<
   }
 
   static getEntityName(): string {
+    // Keep a local class alias so formatters don't replace `this` with the abstract base.
     const repository = this;
     const entityType = repository.getEntityType();
     const entityName = entityType.entityName;

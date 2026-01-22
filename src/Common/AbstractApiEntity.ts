@@ -24,6 +24,7 @@ export default abstract class AbstractApiEntity {
     this: ApiEntityConstructor<T>,
     data: ApiEntityData
   ): T {
+    // Keep a local constructor alias so formatters don't replace `this` with the abstract base.
     const ctor: ApiEntityConstructor<T> = this;
     return new ctor(data);
   }
