@@ -65,10 +65,12 @@ export default abstract class AbstractApiClient {
   }
 
   static create<T extends AbstractApiClient, U extends ApiClientOptions>(
-    this: new (options?: ApiClientOptions) => T,
+    this: new (
+      options?: ApiClientOptions
+    ) => T,
     options: NoExtra<ApiClientOptions, U> = {} as NoExtra<ApiClientOptions, U>
   ): T {
-    return new this(options);
+    return new AbstractApiClient(options);
   }
 
   get({ path, options }: ApiClientGetOptions) {

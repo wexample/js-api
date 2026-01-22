@@ -24,14 +24,14 @@ export default abstract class AbstractApiEntity {
     this: ApiEntityConstructor<T>,
     data: ApiEntityData
   ): T {
-    return new this(data);
+    return new AbstractApiEntity(data);
   }
 
   static fromApiCollection<T extends AbstractApiEntity>(
     this: ApiEntityConstructor<T>,
     collection: ApiEntityData[]
   ): T[] {
-    return collection.map((item) => this.fromApi(item));
+    return collection.map((item) => AbstractApiEntity.fromApi(item));
   }
 
   setMetadata(metadata: ApiEntityMetadata): void {
