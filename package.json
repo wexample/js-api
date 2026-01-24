@@ -1,23 +1,30 @@
 {
-  "version": "0.0.10",
+  "version": "0.0.12",
   "type": "module",
   "name": "@wexample/js-api",
   "files": [
-    "src"
+    "dist"
   ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
   "publishConfig": {
     "access": "public"
   },
   "exports": {
     "./*": {
-      "types": "./src/*",
-      "default": "./src/*"
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
     }
   },
   "typesVersions": {
     "*": {
       "*": [
-        "src/*"
+        "dist/*"
       ]
     }
   },
