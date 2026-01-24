@@ -1,8 +1,8 @@
-import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient';
+import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient.js';
 import AbstractApiEntity, {
   type ApiEntityConstructor,
   type ApiEntityData,
-} from './AbstractApiEntity';
+} from './AbstractApiEntity.js';
 
 type RepositoryClass<T extends AbstractApiEntity> = {
   getEntityType(): ApiEntityConstructor<T>;
