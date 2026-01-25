@@ -1,4 +1,4 @@
-import AbstractEntityManipulatorMixin from './AbstractEntityManipulatorMixin';
+import AbstractEntityManipulatorMixin from './AbstractEntityManipulatorMixin.js';
 
 const AbstractEntityCollectionMixin = {
   mixins: [AbstractEntityManipulatorMixin],

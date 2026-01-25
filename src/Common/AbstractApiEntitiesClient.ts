@@ -1,8 +1,8 @@
-import AbstractApiClient, { type ApiClientOptions } from './AbstractApiClient';
-import type AbstractApiEntity from './AbstractApiEntity';
-import type { ApiEntityConstructor } from './AbstractApiEntity';
-import type AbstractApiRepository from './AbstractApiRepository';
-import ApiEntityManager, { type RepositoryClass } from './ApiEntityManager';
+import AbstractApiClient, { type ApiClientOptions } from './AbstractApiClient.js';
+import type AbstractApiEntity from './AbstractApiEntity.js';
+import type { ApiEntityConstructor } from './AbstractApiEntity.js';
+import type AbstractApiRepository from './AbstractApiRepository.js';
+import ApiEntityManager, { type RepositoryClass } from './ApiEntityManager.js';
 
 export default abstract class AbstractApiEntitiesClient extends AbstractApiClient {
   private readonly entityManager: ApiEntityManager;
