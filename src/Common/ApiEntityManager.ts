@@ -1,7 +1,7 @@
-import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient';
-import type AbstractApiEntity from './AbstractApiEntity';
-import type { ApiEntityConstructor } from './AbstractApiEntity';
-import type AbstractApiRepository from './AbstractApiRepository';
+import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient.js';
+import type AbstractApiEntity from './AbstractApiEntity.js';
+import type { ApiEntityConstructor } from './AbstractApiEntity.js';
+import type AbstractApiRepository from './AbstractApiRepository.js';
 
 export type RepositoryClass<T extends AbstractApiEntity = AbstractApiEntity> = {
   new (client: AbstractApiEntitiesClient): AbstractApiRepository<T>;
