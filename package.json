@@ -2,13 +2,8 @@
   "version": "0.0.14",
   "type": "module",
   "name": "@wexample/js-api",
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsc",
-    "build:watch": "tsc -w --preserveWatchOutput",
-    "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
@@ -16,19 +11,6 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "exports": {
-    "./*": {
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "*": [
-        "dist/*"
-      ]
-    }
   },
   "peerDependencies": {
     "@wexample/js-helpers": "*"
