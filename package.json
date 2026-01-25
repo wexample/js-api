@@ -1,5 +1,5 @@
 {
-  "version": "0.0.14",
+  "version": "0.0.15",
   "type": "module",
   "name": "@wexample/js-api",
   "scripts": {
@@ -18,5 +18,21 @@
   "dependencies": {
     "ky": "^1.4.0"
   },
-  "repository": "https://github.com/wexample/js-api"
+  "repository": "https://github.com/wexample/js-api",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "dist/*"
+      ]
+    }
+  }
 }
