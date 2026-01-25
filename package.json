@@ -1,9 +1,10 @@
 {
-  "version": "0.0.16",
+  "version": "0.0.17",
   "type": "module",
   "name": "@wexample/js-api",
   "scripts": {
-    "build": "tsc",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
@@ -22,17 +23,11 @@
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "exports": {
     "./*": {
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "*": [
-        "dist/*"
-      ]
+      "types": "./dist/*",
+      "default": "./dist/*"
     }
   }
 }
