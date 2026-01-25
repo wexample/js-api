@@ -1,5 +1,5 @@
 {
-  "version": "0.0.17",
+  "version": "0.0.18",
   "type": "module",
   "name": "@wexample/js-api",
   "scripts": {
@@ -26,8 +26,8 @@
   "sideEffects": false,
   "exports": {
     "./*": {
-      "types": "./dist/*",
-      "default": "./dist/*"
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
     }
   }
 }
