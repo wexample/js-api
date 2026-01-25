@@ -1,10 +1,7 @@
 {
-  "version": "0.0.14",
+  "version": "0.0.15",
   "type": "module",
   "name": "@wexample/js-api",
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build"
@@ -15,6 +12,16 @@
   "publishConfig": {
     "access": "public"
   },
+  "peerDependencies": {
+    "@wexample/js-helpers": "*"
+  },
+  "dependencies": {
+    "ky": "^1.4.0"
+  },
+  "repository": "https://github.com/wexample/js-api",
+  "files": [
+    "dist"
+  ],
   "exports": {
     "./*": {
       "types": "./dist/*.d.ts",
@@ -27,12 +34,5 @@
         "dist/*"
       ]
     }
-  },
-  "peerDependencies": {
-    "@wexample/js-helpers": "*"
-  },
-  "dependencies": {
-    "ky": "^1.4.0"
-  },
-  "repository": "https://github.com/wexample/js-api"
+  }
 }
