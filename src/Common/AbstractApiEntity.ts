@@ -87,7 +87,7 @@ export default abstract class AbstractApiEntity {
 
     for (const relationship of this.relationships) {
       const relationshipConstructor = relationship.constructor as typeof AbstractApiEntity;
-      const entityName = relationship.entityName ?? relationshipConstructor.entityName;
+      const entityName = relationship.entityName;
       if (!entityName) {
         throw new Error('[js-api] relationship missing entityName');
       }
@@ -117,7 +117,7 @@ export default abstract class AbstractApiEntity {
 
     return this.relationships.filter((relationship) => {
       const relationshipConstructor = relationship.constructor as typeof AbstractApiEntity;
-      const entityName = relationship.entityName ?? relationshipConstructor.entityName;
+      const entityName = relationship.entityName;
       if (!entityName) {
         throw new Error('[js-api] relationship missing entityName');
       }

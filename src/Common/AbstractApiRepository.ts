@@ -114,7 +114,7 @@ export default abstract class AbstractApiRepository<
     const schema = schemas[entityType.entityName] as { properties?: unknown[] } | undefined;
 
     if (!schema || !Array.isArray(schema.properties)) {
-      return [];
+      throw new Error('[js-api] schema missing or invalid for entity.');
     }
 
     const output: AbstractApiEntity[] = [];
@@ -124,21 +124,23 @@ export default abstract class AbstractApiRepository<
         continue;
       }
 
-      const type = String((property as Record<string, unknown>)['type'] ?? '').toLowerCase();
+      const typeValue = (property as Record<string, unknown>)['type'];
+      if (typeof typeValue !== 'string' || !typeValue) {
+        throw new Error('[js-api] schema property missing type.');
+      }
+      const type = typeValue.toLowerCase();
       if (!['relation', 'collection'].includes(type)) {
         continue;
       }
 
       const target = (property as Record<string, unknown>)['target'];
       if (typeof target !== 'string' || !target) {
-        continue;
+        throw new Error('[js-api] schema property missing target.');
       }
 
-      const apiField =
-        (property as Record<string, unknown>)['apiField'] ??
-        (property as Record<string, unknown>)['name'];
+      const apiField = (property as Record<string, unknown>)['apiField'];
       if (typeof apiField !== 'string' || !apiField) {
-        continue;
+        throw new Error('[js-api] schema property missing apiField.');
       }
 
       const value = data[apiField];

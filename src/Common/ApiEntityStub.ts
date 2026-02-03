@@ -7,7 +7,7 @@ export default class ApiEntityStub extends AbstractApiEntity {
 
   constructor(data: ApiEntityData = {}) {
     super(data);
-    this.targetName = (data['target'] ?? data['entityName'] ?? '') as string;
+    this.targetName = data['target'] as string;
   }
 
   isStub(): boolean {
