@@ -75,6 +75,7 @@ export default abstract class AbstractApiRepository<
     const entityType = this.getEntityType();
     const entity = entityType.fromApi(data);
 
+    this.hydrateEntityFields(entity, entityType, data);
     entity.setMetadata(metadata);
     this.getEntityRegistry().registerEntity(entity);
     entity.setRelationships(this.buildRelationshipsForEntity(entity, entityType, data, relationships));
@@ -110,12 +111,7 @@ export default abstract class AbstractApiRepository<
     data: ApiEntityData,
     relationships: ApiItemRelationships
   ): AbstractApiEntity[] {
-    const schemas = this.getEntitySchemas();
-    const schema = schemas[entityType.entityName] as { properties?: unknown[] } | undefined;
-
-    if (!schema || !Array.isArray(schema.properties)) {
-      throw new Error('[js-api] schema missing or invalid for entity.');
-    }
+    const schema = this.getEntitySchema(entityType);
 
     const output: AbstractApiEntity[] = [];
 
@@ -123,6 +119,12 @@ export default abstract class AbstractApiRepository<
       if (!property || typeof property !== 'object') {
         continue;
       }
+
+      const nameValue = (property as Record<string, unknown>)['name'];
+      if (typeof nameValue !== 'string' || !nameValue) {
+        throw new Error('[js-api] schema property missing name.');
+      }
+      const name = nameValue;
 
       const typeValue = (property as Record<string, unknown>)['type'];
       if (typeof typeValue !== 'string' || !typeValue) {
@@ -138,10 +140,9 @@ export default abstract class AbstractApiRepository<
         throw new Error('[js-api] schema property missing target.');
       }
 
-      const apiField = (property as Record<string, unknown>)['apiField'];
-      if (typeof apiField !== 'string' || !apiField) {
-        throw new Error('[js-api] schema property missing apiField.');
-      }
+      const apiFieldValue = (property as Record<string, unknown>)['apiField'];
+      const apiField =
+        typeof apiFieldValue === 'string' && apiFieldValue ? apiFieldValue : name;
 
       const value = data[apiField];
 
@@ -163,6 +164,86 @@ export default abstract class AbstractApiRepository<
     }
 
     return output;
+  }
+
+  protected hydrateEntityFields(
+    entity: AbstractApiEntity,
+    entityType: ApiEntityConstructor<T>,
+    data: ApiEntityData
+  ): void {
+    const schema = this.getEntitySchema(entityType);
+
+    for (const property of schema.properties) {
+      if (!property || typeof property !== 'object') {
+        continue;
+      }
+
+      const nameValue = (property as Record<string, unknown>)['name'];
+      if (typeof nameValue !== 'string' || !nameValue) {
+        throw new Error('[js-api] schema property missing name.');
+      }
+      const name = nameValue;
+
+      const typeValue = (property as Record<string, unknown>)['type'];
+      if (typeof typeValue !== 'string' || !typeValue) {
+        throw new Error('[js-api] schema property missing type.');
+      }
+      const type = typeValue.toLowerCase();
+
+      const apiFieldValue = (property as Record<string, unknown>)['apiField'];
+      const apiField =
+        typeof apiFieldValue === 'string' && apiFieldValue ? apiFieldValue : name;
+
+      if (!(apiField in data)) {
+        continue;
+      }
+
+      const rawValue = data[apiField];
+      const value = this.normalizeFieldValue(type, rawValue);
+      (entity as unknown as Record<string, unknown>)[name] = value;
+    }
+  }
+
+  protected normalizeFieldValue(type: string, value: unknown): unknown {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    switch (type) {
+      case 'datetime': {
+        const date = new Date(String(value));
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+      case 'integer': {
+        const num = Number(value);
+        return Number.isNaN(num) ? null : Math.trunc(num);
+      }
+      case 'float':
+      case 'double':
+      case 'decimal': {
+        const num = Number(value);
+        return Number.isNaN(num) ? null : num;
+      }
+      case 'boolean':
+        return typeof value === 'boolean' ? value : Boolean(value);
+      case 'string':
+        return String(value);
+      default:
+        return value;
+    }
+  }
+
+  protected getEntitySchema(
+    entityType: ApiEntityConstructor<T>
+  ): { properties: unknown[] } {
+    const schemas = this.getEntitySchemas();
+    const schema = schemas[entityType.entityName] as { properties?: unknown[] } | undefined;
+
+    if (!schema || !Array.isArray(schema.properties)) {
+      throw new Error('[js-api] schema missing or invalid for entity.');
+    }
+
+    return { properties: schema.properties };
   }
 
   protected resolveRelationshipEntity(

@@ -15,7 +15,7 @@ export default abstract class AbstractApiEntity {
   metadata: ApiEntityMetadata;
   relationships: AbstractApiEntity[];
 
-  protected constructor(data: ApiEntityData = {}) {
+  constructor(data: ApiEntityData = {}) {
     this.secureId = data.secureId as string | undefined;
     this.metadata = [];
     this.relationships = [];
