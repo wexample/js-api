@@ -5,6 +5,7 @@ import AbstractApiEntity, {
 } from './AbstractApiEntity.js';
 import ApiEntityStub from './ApiEntityStub.js';
 import type ApiEntityRegistry from './ApiEntityRegistry.js';
+import { stringToKebabCase } from '@wexample/js-helpers/Helper/String';
 
 type RepositoryClass<T extends AbstractApiEntity> = {
   getEntityType(): ApiEntityConstructor<T>;
@@ -291,7 +292,8 @@ export default abstract class AbstractApiRepository<
 
   public buildPath(pathSuffix: string): string {
     const entityName = (this.constructor as typeof AbstractApiRepository).getEntityName();
-    return `${entityName}/${pathSuffix}`;
+    const base = stringToKebabCase(entityName);
+    return `${base}/${pathSuffix}`;
   }
 
   protected extractPayload(data: unknown): ApiEntityData {
@@ -353,7 +355,7 @@ export default abstract class AbstractApiRepository<
     return this.client
       .post({
         path: this.buildPath(endpoint),
-        json: payload,
+        options: { json: payload },
       })
       .json<unknown>();
   }
