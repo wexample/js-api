@@ -34,6 +34,10 @@ type FetchOptions = {
   identifier: string;
   endpoint?: string;
 };
+type PostOptions = {
+  endpoint: string;
+  payload?: Record<string, unknown>;
+};
 
 export default abstract class AbstractApiRepository<
   T extends AbstractApiEntity = AbstractApiEntity,
@@ -342,6 +346,16 @@ export default abstract class AbstractApiRepository<
     const [item, metadata, relationships] = this.splitApiItem(payload);
 
     return this.createFromApiItem({ data: item, metadata, relationships });
+  }
+
+  async post(options: PostOptions): Promise<unknown> {
+    const { endpoint, payload = {} } = options;
+    return this.client
+      .post({
+        path: this.buildPath(endpoint),
+        json: payload,
+      })
+      .json<unknown>();
   }
 
   protected getEntitySchemas(): Record<string, unknown> {
