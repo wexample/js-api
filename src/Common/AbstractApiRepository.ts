@@ -39,11 +39,23 @@ type PostOptions = {
   endpoint: string;
   payload?: Record<string, unknown>;
 };
+type FetchListCachedByNameOptions<T extends AbstractApiEntity> = {
+  cacheName: string;
+  fetch: () => Promise<T[]>;
+  ttlMs?: number | null;
+  forceRefresh?: boolean;
+};
+type NamedListCacheEntry<T extends AbstractApiEntity> = {
+  value?: T[];
+  expiresAt: number | null;
+  inFlight?: Promise<T[]>;
+};
 
 export default abstract class AbstractApiRepository<
   T extends AbstractApiEntity = AbstractApiEntity,
 > {
   protected readonly client: AbstractApiEntitiesClient;
+  private readonly namedListCache: Map<string, NamedListCacheEntry<T>> = new Map();
 
   constructor(client: AbstractApiEntitiesClient) {
     this.client = client;
@@ -338,6 +350,73 @@ export default abstract class AbstractApiRepository<
     return this.createFromApiCollection(items);
   }
 
+  async fetchListCachedByName(
+    options: FetchListCachedByNameOptions<T>
+  ): Promise<T[]> {
+    const {
+      cacheName,
+      fetch,
+      ttlMs = null,
+      forceRefresh = false,
+    } = options;
+
+    if (!cacheName) {
+      throw new Error('cacheName is required for fetchListCachedByName().');
+    }
+
+    const now = Date.now();
+    const previousEntry = this.namedListCache.get(cacheName);
+
+    if (
+      !forceRefresh &&
+      previousEntry?.value &&
+      this.isCacheEntryFresh(previousEntry, now)
+    ) {
+      return previousEntry.value;
+    }
+
+    if (!forceRefresh && previousEntry?.inFlight) {
+      return previousEntry.inFlight;
+    }
+
+    const inFlight = (async () => {
+      try {
+        const list = await fetch();
+        this.namedListCache.set(cacheName, {
+          value: list,
+          expiresAt: this.computeExpiresAt(ttlMs),
+        });
+        return list;
+      } catch (error) {
+        if (previousEntry) {
+          this.namedListCache.set(cacheName, {
+            value: previousEntry.value,
+            expiresAt: previousEntry.expiresAt,
+          });
+        } else {
+          this.namedListCache.delete(cacheName);
+        }
+        throw error;
+      }
+    })();
+
+    this.namedListCache.set(cacheName, {
+      value: previousEntry?.value,
+      expiresAt: previousEntry?.expiresAt ?? null,
+      inFlight,
+    });
+
+    return inFlight;
+  }
+
+  invalidateNamedListCache(cacheName: string): void {
+    this.namedListCache.delete(cacheName);
+  }
+
+  clearNamedListCache(): void {
+    this.namedListCache.clear();
+  }
+
   async fetch(options: FetchOptions): Promise<T> {
     const { identifier, endpoint = 'show' } = options;
     const data = await this.client
@@ -376,5 +455,20 @@ export default abstract class AbstractApiRepository<
     }
 
     return client.getEntityRegistry();
+  }
+
+  private computeExpiresAt(ttlMs: number | null): number | null {
+    if (ttlMs === null) {
+      return null;
+    }
+
+    return Date.now() + Math.max(0, ttlMs);
+  }
+
+  private isCacheEntryFresh(
+    entry: NamedListCacheEntry<T>,
+    now: number
+  ): boolean {
+    return entry.expiresAt === null || entry.expiresAt > now;
   }
 }
