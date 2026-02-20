@@ -245,7 +245,7 @@ export default abstract class AbstractApiRepository<
     const schema = schemas[entityType.entityName] as { properties?: unknown[] } | undefined;
 
     if (!schema || !Array.isArray(schema.properties)) {
-      throw new Error('[js-api] schema missing or invalid for entity.');
+      throw new Error('[js-api] schema missing or invalid for entity: ' + entityType.entityName);
     }
 
     return { properties: schema.properties };
