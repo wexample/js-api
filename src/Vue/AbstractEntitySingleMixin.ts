@@ -46,19 +46,13 @@ const AbstractEntitySingleMixin = {
   },
 
   methods: {
-    getEntityIdentifier() {
-      const identifier = this.entitySecureId ?? this.entity?.secureId ?? null;
-
-      if (identifier === null || identifier === undefined || identifier === '') {
+    getEntityFetchParams() {
+      if (!this.entitySecureId) {
         throw new Error('Missing entitySecureId.');
       }
 
-      return String(identifier);
-    },
-
-    getEntityFetchParams() {
       return {
-        identifier: this.getEntityIdentifier(),
+        identifier: String(this.entitySecureId),
       };
     },
 
