@@ -147,14 +147,16 @@ export default abstract class AbstractApiRepository<
       if (typeof typeValue !== 'string' || !typeValue) {
         throw new Error('[js-api] schema property missing type.');
       }
-      const type = typeValue.toLowerCase();
-      if (!['relation', 'collection'].includes(type)) {
+
+      // `relation` = single linked entity, `collection` = list of linked entities.
+      if (typeValue !== 'relation' && typeValue !== 'collection') {
         continue;
       }
+      const type = typeValue;
 
       const target = (property as Record<string, unknown>)['target'];
       if (typeof target !== 'string' || !target) {
-        throw new Error('[js-api] schema property missing target.');
+        continue;
       }
 
       const apiFieldValue = (property as Record<string, unknown>)['apiField'];
