@@ -1,7 +1,8 @@
 import AbstractEntityManipulatorMixin from './AbstractEntityManipulatorMixin.js';
+import WithAsyncComponentLoadVueMixin from './WithAsyncComponentLoadVueMixin.js';
 
 const AbstractEntitySingleMixin = {
-  mixins: [AbstractEntityManipulatorMixin],
+  mixins: [AbstractEntityManipulatorMixin, WithAsyncComponentLoadVueMixin],
 
   props: {
     entityInstance: {
@@ -36,15 +37,7 @@ const AbstractEntitySingleMixin = {
         return;
       }
 
-      await this.fetchEntity();
-    },
-  },
-
-  async mounted() {
-    this.validateEntitySource();
-
-    if (this.entitySecureId) {
-      await this.fetchEntity();
+      await this.loadAsyncComponent(true);
     }
   },
 
@@ -73,6 +66,17 @@ const AbstractEntitySingleMixin = {
       } finally {
         this.entityLoading = false;
       }
+    },
+
+    async asyncComponentLoad() {
+      this.validateEntitySource();
+
+      if (this.entityInstance) {
+        this.entity = this.entityInstance;
+        return;
+      }
+
+      await this.fetchEntity();
     },
   },
 };
