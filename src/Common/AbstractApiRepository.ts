@@ -479,6 +479,18 @@ export default abstract class AbstractApiRepository<
       return previousEntry.inFlight;
     }
 
+    if (!forceRefresh) {
+      const bridgedEntity = this.findCachedEntityBySecureId(identifier);
+      if (bridgedEntity) {
+        this.namedEntityCache.set(cacheKey, {
+          value: bridgedEntity,
+          expiresAt: this.computeExpiresAt(ttlMs),
+        });
+
+        return bridgedEntity;
+      }
+    }
+
     const inFlight = (async () => {
       try {
         const entity = await this.fetch({
@@ -643,5 +655,26 @@ export default abstract class AbstractApiRepository<
     secureId: string
   ): string {
     return `${cacheName}::${endpoint}::${secureId}`;
+  }
+
+  private findCachedEntityBySecureId(secureId: string): T | undefined {
+    const entityType = this.getEntityType();
+    const fromRegistry = this.getEntityRegistry().resolve(entityType.entityName, secureId);
+    if (fromRegistry) {
+      return fromRegistry as T;
+    }
+
+    for (const entry of this.namedListCache.values()) {
+      if (!entry.value) {
+        continue;
+      }
+
+      const matched = entry.value.find((entity) => entity?.secureId === secureId);
+      if (matched) {
+        return matched;
+      }
+    }
+
+    return undefined;
   }
 }
