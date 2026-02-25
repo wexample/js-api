@@ -53,19 +53,28 @@ const AbstractEntitySingleMixin = {
     },
 
     async fetchEntity() {
-      if (!this.entitySecureId) {
-        throw new Error('Missing entitySecureId.');
-      }
+      const secureId = this.getEntitySecureId();
 
       this.entityLoading = true;
       try {
         this.entity = await this.getEntityRepository().fetch({
-          identifier: String(this.entitySecureId),
+          identifier: secureId,
         });
         return this.entity;
       } finally {
         this.entityLoading = false;
       }
+    },
+
+    getEntitySecureId() {
+      const secureIdFromEntity = this.entity?.secureId ?? this.entityInstance?.secureId;
+      const secureId = secureIdFromEntity ?? this.entitySecureId;
+
+      if (secureId === null || secureId === undefined || secureId === '') {
+        throw new Error('Missing entity secureId.');
+      }
+
+      return String(secureId);
     },
 
     async asyncComponentLoad() {

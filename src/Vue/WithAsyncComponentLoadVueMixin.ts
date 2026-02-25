@@ -17,6 +17,27 @@ const WithAsyncComponentLoadVueMixin = {
       // Override in component to load required async data.
     },
 
+    asyncComponentPromisesLoad() {
+      // Override in component to return additional async work.
+      // Each item can be a Promise or a function returning a Promise.
+      return [];
+    },
+
+    resolveAsyncComponentPromises() {
+      const items = this.asyncComponentPromisesLoad();
+      if (!Array.isArray(items) || !items.length) {
+        return [];
+      }
+
+      return items.map((item) => {
+        if (typeof item === 'function') {
+          return item.call(this);
+        }
+
+        return item;
+      });
+    },
+
     async loadAsyncComponent(forceRefresh = false) {
       if (this.asyncComponentLoading && !forceRefresh) {
         return this.asyncComponentLoadPromise;
@@ -31,7 +52,11 @@ const WithAsyncComponentLoadVueMixin = {
 
       this.asyncComponentLoadPromise = (async () => {
         try {
-          await this.asyncComponentLoad();
+          const extraPromises = this.resolveAsyncComponentPromises();
+          await Promise.all([
+            this.asyncComponentLoad(),
+            ...extraPromises,
+          ]);
           this.asyncComponentLoaded = true;
         } catch (error) {
           this.asyncComponentLoaded = false;
