@@ -38,6 +38,23 @@ const WithAsyncComponentLoadVueMixin = {
       });
     },
 
+    async duringAsyncLoad(asyncCallback) {
+      this.asyncComponentLoading = true;
+      this.asyncComponentError = null;
+
+      try {
+        const result = await asyncCallback.call(this);
+        this.asyncComponentLoaded = true;
+        return result;
+      } catch (error) {
+        this.asyncComponentLoaded = false;
+        this.asyncComponentError = error;
+        throw error;
+      } finally {
+        this.asyncComponentLoading = false;
+      }
+    },
+
     async loadAsyncComponent(forceRefresh = false) {
       if (this.asyncComponentLoading && !forceRefresh) {
         return this.asyncComponentLoadPromise;
@@ -47,23 +64,16 @@ const WithAsyncComponentLoadVueMixin = {
         return;
       }
 
-      this.asyncComponentLoading = true;
-      this.asyncComponentError = null;
-
       this.asyncComponentLoadPromise = (async () => {
         try {
-          const extraPromises = this.resolveAsyncComponentPromises();
-          await Promise.all([
-            this.asyncComponentLoad(),
-            ...extraPromises,
-          ]);
-          this.asyncComponentLoaded = true;
-        } catch (error) {
-          this.asyncComponentLoaded = false;
-          this.asyncComponentError = error;
-          throw error;
+          return await this.duringAsyncLoad(async () => {
+            const extraPromises = this.resolveAsyncComponentPromises();
+            await Promise.all([
+              this.asyncComponentLoad(),
+              ...extraPromises,
+            ]);
+          });
         } finally {
-          this.asyncComponentLoading = false;
           this.asyncComponentLoadPromise = null;
         }
       })();
