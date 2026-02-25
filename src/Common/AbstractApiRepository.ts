@@ -56,10 +56,22 @@ type FetchListCachedByNameOptions<T extends AbstractApiEntity> = {
   ttlMs?: number | null;
   forceRefresh?: boolean;
 };
+type FetchCachedByNameOptions = {
+  cacheName: string;
+  secureId: string | number;
+  endpoint?: string;
+  ttlMs?: number | null;
+  forceRefresh?: boolean;
+};
 type NamedListCacheEntry<T extends AbstractApiEntity> = {
   value?: T[];
   expiresAt: number | null;
   inFlight?: Promise<T[]>;
+};
+type NamedEntityCacheEntry<T extends AbstractApiEntity> = {
+  value?: T;
+  expiresAt: number | null;
+  inFlight?: Promise<T>;
 };
 
 export default abstract class AbstractApiRepository<
@@ -67,6 +79,7 @@ export default abstract class AbstractApiRepository<
 > {
   protected readonly client: AbstractApiEntitiesClient;
   private readonly namedListCache: Map<string, NamedListCacheEntry<T>> = new Map();
+  private readonly namedEntityCache: Map<string, NamedEntityCacheEntry<T>> = new Map();
 
   constructor(client: AbstractApiEntitiesClient) {
     this.client = client;
@@ -430,6 +443,102 @@ export default abstract class AbstractApiRepository<
     this.namedListCache.clear();
   }
 
+  async fetchCachedByName(
+    options: FetchCachedByNameOptions
+  ): Promise<T> {
+    const {
+      cacheName,
+      secureId,
+      endpoint = 'show',
+      ttlMs = null,
+      forceRefresh = false,
+    } = options;
+
+    if (!cacheName) {
+      throw new Error('cacheName is required for fetchCachedByName().');
+    }
+
+    const identifier = String(secureId ?? '').trim();
+    if (!identifier) {
+      throw new Error('secureId is required for fetchCachedByName().');
+    }
+
+    const cacheKey = this.buildNamedEntityCacheKey(cacheName, endpoint, identifier);
+    const now = Date.now();
+    const previousEntry = this.namedEntityCache.get(cacheKey);
+
+    if (
+      !forceRefresh &&
+      previousEntry?.value &&
+      this.isCacheEntryFresh(previousEntry, now)
+    ) {
+      return previousEntry.value;
+    }
+
+    if (!forceRefresh && previousEntry?.inFlight) {
+      return previousEntry.inFlight;
+    }
+
+    const inFlight = (async () => {
+      try {
+        const entity = await this.fetch({
+          identifier,
+          endpoint,
+        });
+        this.namedEntityCache.set(cacheKey, {
+          value: entity,
+          expiresAt: this.computeExpiresAt(ttlMs),
+        });
+        return entity;
+      } catch (error) {
+        if (previousEntry) {
+          this.namedEntityCache.set(cacheKey, {
+            value: previousEntry.value,
+            expiresAt: previousEntry.expiresAt,
+          });
+        } else {
+          this.namedEntityCache.delete(cacheKey);
+        }
+        throw error;
+      }
+    })();
+
+    this.namedEntityCache.set(cacheKey, {
+      value: previousEntry?.value,
+      expiresAt: previousEntry?.expiresAt ?? null,
+      inFlight,
+    });
+
+    return inFlight;
+  }
+
+  invalidateNamedEntityCache(
+    cacheName: string,
+    secureId?: string | number,
+    endpoint = 'show'
+  ): void {
+    if (secureId === undefined || secureId === null || String(secureId).trim() === '') {
+      const prefix = `${cacheName}::`;
+      for (const key of this.namedEntityCache.keys()) {
+        if (key.startsWith(prefix)) {
+          this.namedEntityCache.delete(key);
+        }
+      }
+      return;
+    }
+
+    const cacheKey = this.buildNamedEntityCacheKey(
+      cacheName,
+      endpoint,
+      String(secureId).trim()
+    );
+    this.namedEntityCache.delete(cacheKey);
+  }
+
+  clearNamedEntityCache(): void {
+    this.namedEntityCache.clear();
+  }
+
   async fetch(options: FetchOptions): Promise<T> {
     const { identifier, endpoint = 'show' } = options;
     const data = await this.client
@@ -522,9 +631,17 @@ export default abstract class AbstractApiRepository<
   }
 
   private isCacheEntryFresh(
-    entry: NamedListCacheEntry<T>,
+    entry: Pick<NamedListCacheEntry<T>, 'expiresAt'> | Pick<NamedEntityCacheEntry<T>, 'expiresAt'>,
     now: number
   ): boolean {
     return entry.expiresAt === null || entry.expiresAt > now;
+  }
+
+  private buildNamedEntityCacheKey(
+    cacheName: string,
+    endpoint: string,
+    secureId: string
+  ): string {
+    return `${cacheName}::${endpoint}::${secureId}`;
   }
 }
