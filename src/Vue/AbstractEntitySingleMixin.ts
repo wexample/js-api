@@ -3,6 +3,7 @@ import WithAsyncComponentLoadVueMixin from './WithAsyncComponentLoadVueMixin.js'
 
 const AbstractEntitySingleMixin = {
   mixins: [AbstractEntityManipulatorMixin, WithAsyncComponentLoadVueMixin],
+  emits: ['entity-deleted'],
 
   props: {
     entityInstance: {
@@ -86,6 +87,21 @@ const AbstractEntitySingleMixin = {
       }
 
       await this.fetchEntity();
+    },
+
+    async deleteCurrentEntity() {
+      const secureId = this.getEntitySecureId();
+      const deletedEntity = this.entity;
+
+      await this.getEntityRepository().deleteEntity({
+        identifier: secureId,
+      });
+
+      this.entity = null;
+      this.$emit('entity-deleted', {
+        entity: deletedEntity,
+        identifier: secureId,
+      });
     },
   },
 };
