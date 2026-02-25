@@ -15,6 +15,10 @@ type ApiClientPostOptions = {
   path: string;
   options?: Options;
 };
+type ApiClientDeleteOptions = {
+  path: string;
+  options?: Options;
+};
 type ApiClientPostFormDataOptions = {
   path: string;
   formData: FormData;
@@ -80,6 +84,10 @@ export default abstract class AbstractApiClient {
 
   post({ path, options }: ApiClientPostOptions) {
     return this.client.post(this.normalizePath(path), options);
+  }
+
+  delete({ path, options }: ApiClientDeleteOptions) {
+    return this.client.delete(this.normalizePath(path), options);
   }
 
   postFormData({ path, formData, options }: ApiClientPostFormDataOptions) {

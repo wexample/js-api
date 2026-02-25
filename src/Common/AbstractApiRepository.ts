@@ -39,6 +39,17 @@ type PostOptions = {
   endpoint: string;
   payload?: Record<string, unknown>;
 };
+type CreateEntityOptions = {
+  payload?: Record<string, unknown>;
+  endpoint?: string;
+  query?: ApiQuery;
+};
+type DeleteEntityOptions = {
+  identifier: string | number;
+  endpoint?: string;
+  query?: ApiQuery;
+  payload?: Record<string, unknown> | null;
+};
 type FetchListCachedByNameOptions<T extends AbstractApiEntity> = {
   cacheName: string;
   fetch: () => Promise<T[]>;
@@ -437,6 +448,49 @@ export default abstract class AbstractApiRepository<
       .post({
         path: this.buildPath(endpoint),
         options: { json: payload },
+      })
+      .json<unknown>();
+  }
+
+  async createEntity(options: CreateEntityOptions = {}): Promise<T> {
+    const {
+      payload = {},
+      endpoint = 'create',
+      query = {},
+    } = options;
+
+    const data = await this.client
+      .post({
+        path: this.buildPath(endpoint),
+        options: {
+          json: payload,
+          searchParams: query,
+        },
+      })
+      .json<unknown>();
+
+    const responsePayload = this.extractPayload(data);
+    const [item, metadata, relationships] = this.splitApiItem(responsePayload);
+
+    return this.createFromApiItem({ data: item, metadata, relationships });
+  }
+
+  async deleteEntity(options: DeleteEntityOptions): Promise<unknown> {
+    const {
+      identifier,
+      endpoint = 'delete',
+      query = {},
+      payload = null,
+    } = options;
+    const path = this.buildPath(`${endpoint}/${encodeURIComponent(String(identifier))}`);
+    const requestOptions = payload === null
+      ? { searchParams: query }
+      : { searchParams: query, json: payload };
+
+    return this.client
+      .delete({
+        path,
+        options: requestOptions,
       })
       .json<unknown>();
   }
