@@ -73,16 +73,39 @@ type NamedEntityCacheEntry<T extends AbstractApiEntity> = {
   expiresAt: number | null;
   inFlight?: Promise<T>;
 };
+type FetchAllCachedOptions = {
+  ttlMs?: number | null;
+  forceRefresh?: boolean;
+};
 
 export default abstract class AbstractApiRepository<
   T extends AbstractApiEntity = AbstractApiEntity,
 > {
+  public static readonly CACHE_NAME_ALL = 'allOperators';
+  public static readonly CACHE_TTL_DEFAULT = 5 * 60 * 1000;
+
   protected readonly client: AbstractApiEntitiesClient;
   private readonly namedListCache: Map<string, NamedListCacheEntry<T>> = new Map();
   private readonly namedEntityCache: Map<string, NamedEntityCacheEntry<T>> = new Map();
 
   constructor(client: AbstractApiEntitiesClient) {
     this.client = client;
+  }
+
+  async fetchAllCached(
+    options: FetchAllCachedOptions = {}
+  ): Promise<AbstractApiEntity[]> {
+    const {
+      ttlMs = AbstractApiRepository.CACHE_TTL_DEFAULT,
+      forceRefresh = false,
+    } = options;
+
+    return this.fetchListCachedByName({
+      cacheName: AbstractApiRepository.CACHE_NAME_ALL,
+      ttlMs,
+      forceRefresh,
+      fetch: () => this.fetchList(),
+    });
   }
 
   static getEntityType(): ApiEntityConstructor<AbstractApiEntity> {
