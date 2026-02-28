@@ -44,6 +44,11 @@ type CreateEntityOptions = {
   endpoint?: string;
   query?: ApiQuery;
 };
+type CreateEntitiesOptions = {
+  payloads: Record<string, unknown>[];
+  endpoint?: string;
+  query?: ApiQuery;
+};
 type DeleteEntityOptions = {
   identifier: string | number;
   endpoint?: string;
@@ -617,6 +622,30 @@ export default abstract class AbstractApiRepository<
     const [item, metadata, relationships] = this.splitApiItem(responsePayload);
 
     return this.createFromApiItem({ data: item, metadata, relationships });
+  }
+
+  async createEntities(options: CreateEntitiesOptions): Promise<T[]> {
+    const {
+      payloads,
+      endpoint = 'create',
+      query = {},
+    } = options;
+
+    const data = await this.client
+      .post({
+        path: this.buildPath(endpoint),
+        options: {
+          json: {
+            items: payloads,
+          },
+          searchParams: query,
+        },
+      })
+      .json<unknown>();
+
+    const responsePayload = this.extractPayload(data);
+    const items = this.extractItems(responsePayload);
+    return this.createFromApiCollection(items);
   }
 
   async deleteEntity(options: DeleteEntityOptions): Promise<unknown> {
