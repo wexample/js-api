@@ -2,9 +2,7 @@ import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient.js';
 import AbstractApiEntity, {
   type ApiEntityConstructor,
   type ApiEntityData,
-  type ApiEntitySchema,
 } from './AbstractApiEntity.js';
-import ApiEntityStub from './ApiEntityStub.js';
 import type ApiEntityRegistry from './ApiEntityRegistry.js';
 import { stringToKebabCase } from '@wexample/js-helpers/Helper/String';
 import {
@@ -19,16 +17,12 @@ type RepositoryClass<T extends AbstractApiEntity> = {
 type ApiItemMetadata = Record<string, unknown> | unknown[];
 type ApiItemRelationships = Record<string, unknown> | unknown[];
 type ApiItem = ApiEntityData & {
+  type?: string;
   entity?: ApiEntityData;
   metadata?: ApiItemMetadata;
   relationships?: ApiItemRelationships;
 };
 type ApiQuery = Record<string, string | number | boolean>;
-type CreateFromApiItemOptions = {
-  data: ApiEntityData;
-  metadata?: ApiItemMetadata;
-  relationships?: ApiItemRelationships;
-};
 type FetchListOptions = {
   query?: ApiQuery;
   page?: number | null;
@@ -143,22 +137,22 @@ export default abstract class AbstractApiRepository<
     return repositoryClass.getEntityType();
   }
 
-  protected createFromApiItem(options: CreateFromApiItemOptions): T {
-    const { data, metadata = [], relationships = [] } = options;
+  protected createFromApiItem(item: ApiItem): T {
+    const [data, metadata, relationships] = this.splitApiItem(item);
     const entityType = this.getEntityType();
     const entity = entityType.fromApi(data);
+    const createdRelationships = this.createRelationships(relationships);
 
     entity.setMetadata(metadata);
     this.getEntityRegistry().registerEntity(entity);
-    entity.setRelationships(this.buildRelationshipsForEntity(entity, entityType, data, relationships));
+    entity.setRelationships(createdRelationships);
 
     return entity;
   }
 
   protected createFromApiCollection(collection: ApiEntityData[]): T[] {
     return collection.map((item) => {
-      const [data, metadata, relationships] = this.splitApiItem(item);
-      return this.createFromApiItem({ data, metadata, relationships });
+      return this.createFromApiItem(item as ApiItem);
     });
   }
 
@@ -177,117 +171,19 @@ export default abstract class AbstractApiRepository<
     return [data, metadata, relationships];
   }
 
-  protected buildRelationshipsForEntity(
-    owner: AbstractApiEntity,
-    entityType: ApiEntityConstructor<T>,
-    data: ApiEntityData,
+  protected createRelationships(
     relationships: ApiItemRelationships
   ): AbstractApiEntity[] {
-    const schema = this.getEntitySchema(entityType);
-
+    const relMap = relationships as Record<string, ApiItem>;
     const output: AbstractApiEntity[] = [];
 
-    for (const property of schema.properties) {
-      if (!property || typeof property !== 'object') {
-        continue;
-      }
-
-      const nameValue = (property as Record<string, unknown>)['name'];
-      if (typeof nameValue !== 'string' || !nameValue) {
-        throw new Error('[js-api] schema property missing name.');
-      }
-      const name = nameValue;
-
-      const typeValue = (property as Record<string, unknown>)['type'];
-      if (typeof typeValue !== 'string' || !typeValue) {
-        throw new Error('[js-api] schema property missing type.');
-      }
-
-      // `relation` = single linked entity, `collection` = list of linked entities.
-      if (typeValue !== 'relation' && typeValue !== 'collection') {
-        continue;
-      }
-      const type = typeValue;
-
-      const target = (property as Record<string, unknown>)['target'];
-      if (typeof target !== 'string' || !target) {
-        continue;
-      }
-
-      const apiFieldValue = (property as Record<string, unknown>)['apiField'];
-      const apiField =
-        typeof apiFieldValue === 'string' && apiFieldValue ? apiFieldValue : name;
-
-      const value = data[apiField];
-
-      if (type === 'relation') {
-        const related = this.resolveRelationshipEntity(owner, target, value, relationships);
-        if (related) {
-          output.push(related);
-        }
-        continue;
-      }
-
-      const items = Array.isArray(value) ? value : value == null ? [] : [value];
-      for (const item of items) {
-        const related = this.resolveRelationshipEntity(owner, target, item, relationships);
-        if (related) {
-          output.push(related);
-        }
-      }
+    for (const [, relEntry] of Object.entries(relMap)) {
+      const relationshipType = relEntry.type as string;
+      const repository = this.client.getRepository(relationshipType) as AbstractApiRepository;
+      output.push(repository.createFromApiItem(relEntry));
     }
 
     return output;
-  }
-
-  protected getEntitySchema(
-    entityType: ApiEntityConstructor<T>
-  ): ApiEntitySchema {
-    const schema = entityType.retrieveEntitySchema();
-    if (!schema || !Array.isArray(schema.properties)) {
-      throw new Error('[js-api] schema missing or invalid for entity: ' + entityType.entityName);
-    }
-
-    return schema;
-  }
-
-  protected resolveRelationshipEntity(
-    owner: AbstractApiEntity,
-    target: string,
-    value: unknown,
-    relationships: ApiItemRelationships
-  ): AbstractApiEntity | undefined {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const [item, metadata, itemRelationships] = this.splitApiItem(value as ApiEntityData);
-      const repository = this.client.getRepository(target) as AbstractApiRepository;
-      return repository.createFromApiItem({
-        data: item,
-        metadata,
-        relationships: itemRelationships,
-      });
-    }
-
-    if (typeof value === 'string' && value && relationships && typeof relationships === 'object') {
-      const relMap = relationships as Record<string, unknown>;
-      const relEntry = relMap[value];
-      if (relEntry && typeof relEntry === 'object' && !Array.isArray(relEntry)) {
-        const [item, metadata, itemRelationships] = this.splitApiItem(relEntry as ApiEntityData);
-        const repository = this.client.getRepository(target) as AbstractApiRepository;
-        return repository.createFromApiItem({
-          data: item,
-          metadata,
-          relationships: itemRelationships,
-        });
-      }
-    }
-
-    if (typeof value === 'string' && value) {
-      const stub = new ApiEntityStub({ secureId: value, target });
-      this.getEntityRegistry().registerStub(owner, stub);
-      return stub;
-    }
-
-    return undefined;
   }
 
   public buildPath(pathSuffix: string): string {
@@ -510,7 +406,11 @@ export default abstract class AbstractApiRepository<
     const payload = this.extractPayload(data);
     const [item, metadata, relationships] = this.splitApiItem(payload);
 
-    return this.createFromApiItem({ data: item, metadata, relationships });
+    return this.createFromApiItem({
+      entity: item,
+      metadata,
+      relationships,
+    });
   }
 
   async post(options: PostOptions): Promise<unknown> {
@@ -544,7 +444,11 @@ export default abstract class AbstractApiRepository<
     const responsePayload = this.extractPayload(data);
     const [item, metadata, relationships] = this.splitApiItem(responsePayload);
 
-    return this.createFromApiItem({ data: item, metadata, relationships });
+    return this.createFromApiItem({
+      entity: item,
+      metadata,
+      relationships,
+    });
   }
 
   async createEntity(entity: T): Promise<T> {

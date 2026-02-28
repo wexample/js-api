@@ -170,6 +170,10 @@ export default abstract class AbstractApiEntity {
     });
   }
 
+  findRelationship(secureId: string): AbstractApiEntity | undefined {
+    return this.relationships.find((relationship) => relationship.secureId === secureId);
+  }
+
   getSecureIdFor(name: string): string | undefined {
     const property = `${name}SecureId`;
     const value = this.getDataValue(property);
