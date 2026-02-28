@@ -1,19 +1,28 @@
 export type ApiEntityData = Record<string, unknown>;
 export type ApiEntityMetadata = Record<string, unknown> | unknown[];
+export type ApiEntitySchemaProperty = {
+  name: string;
+  type?: string;
+  apiField?: string;
+  writable?: boolean;
+  readOnly?: boolean;
+  serializable?: boolean;
+};
+export type ApiEntitySchema = {
+  name: string;
+  properties: unknown[];
+};
 
 export type ApiEntityConstructor<T extends AbstractApiEntity> = {
   new (data?: ApiEntityData): T;
   readonly entityName: string;
+  retrieveEntitySchema(): ApiEntitySchema;
   fromApi(data: ApiEntityData): T;
   fromApiCollection(collection: ApiEntityData[]): T[];
 };
 
-type EntitySchemaResolver = (entityName: string) => Record<string, unknown> | null;
-
 export default abstract class AbstractApiEntity {
   static readonly entityName: string;
-  static entitySchema?: Record<string, unknown>;
-  private static entitySchemaResolver: EntitySchemaResolver | null = null;
   secureId?: string;
   readonly entityName?: string;
   metadata: ApiEntityMetadata;
@@ -22,11 +31,11 @@ export default abstract class AbstractApiEntity {
 
   constructor(data: ApiEntityData = {}) {
     this.data = {};
-    this.secureId = data.secureId as string | undefined;
+    this.secureId = undefined;
     this.metadata = [];
     this.relationships = [];
     this.entityName = (this.constructor as typeof AbstractApiEntity).entityName;
-    this.setData(data);
+    this.patch(data);
 
     // Allow dynamic getX()/getXSecureId() via Proxy, similar to PHP __call.
     if ((this.constructor as typeof AbstractApiEntity).useProxy) {
@@ -39,7 +48,9 @@ export default abstract class AbstractApiEntity {
     data: ApiEntityData
   ): T {
     // biome-ignore lint: keep subclass instantiation with `this`.
-    return new this(data);
+    const entity = new this();
+    entity.assignFromApi(data);
+    return entity;
   }
 
   static fromApiCollection<T extends AbstractApiEntity>(
@@ -48,6 +59,10 @@ export default abstract class AbstractApiEntity {
   ): T[] {
     // biome-ignore lint: keep subclass behavior via `this`.
     return collection.map((item) => this.fromApi(item));
+  }
+
+  static retrieveEntitySchema(): ApiEntitySchema {
+    throw new Error('Entity must define static retrieveEntitySchema().');
   }
 
   setMetadata(metadata: ApiEntityMetadata): void {
@@ -168,18 +183,226 @@ export default abstract class AbstractApiEntity {
     return this.data;
   }
 
-  setData(data: ApiEntityData): void {
+  assignFromApi(data: ApiEntityData): void {
+    const schemaProperties = this.getSchemaProperties();
+    for (const property of schemaProperties) {
+      const apiField = property.apiField && property.apiField ? property.apiField : property.name;
+      if (!(apiField in data)) {
+        continue;
+      }
+
+      this.setDataValue(property.name, this.normalizeIncomingValue(property, data[apiField]));
+    }
+  }
+
+  set(name: string, value: unknown): void {
+    const property = this.getSchemaPropertyByName(name);
+    if (!this.isPropertyWritable(property)) {
+      throw new Error(`[js-api] property "${name}" is read-only on entity "${this.entityName}".`);
+    }
+
+    this.setDataValue(name, this.normalizeIncomingValue(property, value));
+  }
+
+  patch(data: ApiEntityData): void {
     for (const [name, value] of Object.entries(data)) {
-      this.setDataValue(name, value);
+      this.set(name, value);
     }
   }
 
   toApiPayload(): ApiEntityData {
     const output: ApiEntityData = {};
+    const schemaProperties = this.getSchemaProperties();
+    for (const property of schemaProperties) {
+      if (!this.isPropertySerializable(property) || !this.isPropertyWritable(property)) {
+        continue;
+      }
 
-    // TODO
+      const type = this.normalizePropertyType(property.type);
+      if (type === 'relation' || type === 'collection') {
+        continue;
+      }
+
+      if (!(property.name in this.data)) {
+        continue;
+      }
+
+      const apiField = property.apiField && property.apiField ? property.apiField : property.name;
+      output[apiField] = this.serializeOutgoingValue(property, this.data[property.name]);
+    }
 
     return output;
+  }
+
+  protected normalizeIncomingValue(
+    property: ApiEntitySchemaProperty,
+    value: unknown
+  ): unknown {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    switch (this.normalizePropertyType(property.type)) {
+      case 'datetime': {
+        if (value instanceof Date) {
+          return Number.isNaN(value.getTime()) ? null : value;
+        }
+        const date = new Date(String(value));
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+      case 'integer': {
+        const num = Number(value);
+        return Number.isNaN(num) ? null : Math.trunc(num);
+      }
+      case 'float':
+      case 'double':
+      case 'decimal': {
+        const num = Number(value);
+        return Number.isNaN(num) ? null : num;
+      }
+      case 'boolean':
+        return typeof value === 'boolean' ? value : Boolean(value);
+      case 'string':
+        return String(value);
+      default:
+        return value;
+    }
+  }
+
+  protected serializeOutgoingValue(
+    property: ApiEntitySchemaProperty,
+    value: unknown
+  ): unknown {
+    if (value === undefined) {
+      return null;
+    }
+
+    if (value === null) {
+      return null;
+    }
+
+    switch (this.normalizePropertyType(property.type)) {
+      case 'datetime': {
+        if (value instanceof Date) {
+          return Number.isNaN(value.getTime()) ? null : value.toISOString();
+        }
+        const date = new Date(String(value));
+        return Number.isNaN(date.getTime()) ? null : date.toISOString();
+      }
+      case 'integer': {
+        const num = Number(value);
+        return Number.isNaN(num) ? null : Math.trunc(num);
+      }
+      case 'float':
+      case 'double':
+      case 'decimal': {
+        const num = Number(value);
+        return Number.isNaN(num) ? null : num;
+      }
+      case 'boolean':
+        return typeof value === 'boolean' ? value : Boolean(value);
+      case 'string':
+        return String(value);
+      default:
+        return value;
+    }
+  }
+
+  protected normalizePropertyType(type: unknown): string {
+    if (typeof type !== 'string') {
+      return '';
+    }
+
+    const lowered = type.toLowerCase();
+    if (lowered === 'datetimeinterface' || lowered === 'date') {
+      return 'datetime';
+    }
+
+    return lowered;
+  }
+
+  protected getSchemaPropertyByName(name: string): ApiEntitySchemaProperty {
+    for (const property of this.getSchemaProperties()) {
+      if (property.name === name) {
+        return property;
+      }
+    }
+
+    throw new Error(`[js-api] unknown property "${name}" on entity "${this.entityName}".`);
+  }
+
+  protected isPropertyWritable(property: ApiEntitySchemaProperty): boolean {
+    if (property.writable === false) {
+      return false;
+    }
+
+    return property.readOnly !== true;
+  }
+
+  protected isPropertySerializable(property: ApiEntitySchemaProperty): boolean {
+    return property.serializable !== false;
+  }
+
+  protected getSchemaProperties(): ApiEntitySchemaProperty[] {
+    const entityType = this.constructor as typeof AbstractApiEntity;
+    const schema = entityType.retrieveEntitySchema();
+    if (!schema || !Array.isArray(schema.properties)) {
+      throw new Error(`[js-api] schema missing or invalid for entity "${this.entityName}".`);
+    }
+
+    return schema.properties.map((property) =>
+      this.normalizeSchemaProperty(property as Record<string, unknown>)
+    );
+  }
+
+  protected normalizeSchemaProperty(
+    property: Record<string, unknown>
+  ): ApiEntitySchemaProperty {
+    const nameValue = property['name'];
+    if (typeof nameValue !== 'string' || !nameValue) {
+      throw new Error('[js-api] schema property missing name.');
+    }
+
+    const typeValue = property['type'];
+    if (typeValue !== undefined && typeof typeValue !== 'string') {
+      throw new Error(`[js-api] invalid schema type for property "${nameValue}".`);
+    }
+
+    const apiFieldValue = property['apiField'];
+    if (apiFieldValue !== undefined && typeof apiFieldValue !== 'string') {
+      throw new Error(`[js-api] invalid schema apiField for property "${nameValue}".`);
+    }
+
+    const writableValue = property['writable'];
+    if (writableValue !== undefined && typeof writableValue !== 'boolean') {
+      throw new Error(`[js-api] invalid schema writable for property "${nameValue}".`);
+    }
+
+    const readOnlyValue = property['readOnly'];
+    if (readOnlyValue !== undefined && typeof readOnlyValue !== 'boolean') {
+      throw new Error(`[js-api] invalid schema readOnly for property "${nameValue}".`);
+    }
+
+    const serializableValue = property['serializable'];
+    if (serializableValue !== undefined && typeof serializableValue !== 'boolean') {
+      throw new Error(`[js-api] invalid schema serializable for property "${nameValue}".`);
+    }
+
+    const writable = typeof writableValue === 'boolean' ? writableValue : undefined;
+    const readOnly = typeof readOnlyValue === 'boolean' ? readOnlyValue : undefined;
+    const serializable =
+      typeof serializableValue === 'boolean' ? serializableValue : undefined;
+    const type = typeof typeValue === 'string' ? typeValue : undefined;
+    const apiField = typeof apiFieldValue === 'string' ? apiFieldValue : undefined;
+
+    return {
+      name: nameValue,
+      type,
+      apiField,
+      writable,
+      readOnly,
+      serializable,
+    };
   }
 
   protected static normalizeRelationshipName(name: string): string {
