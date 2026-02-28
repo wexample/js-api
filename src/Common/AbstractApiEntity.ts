@@ -20,7 +20,6 @@ import {
 } from '../Helper/ApiEntitySchemaHelper.js';
 import {
   normalizeIncomingValue,
-  normalizePropertyType,
   serializeOutgoingValue,
 } from '../Helper/ApiEntityValueHelper.js';
 import {
@@ -230,11 +229,6 @@ export default abstract class AbstractApiEntity {
     const schemaProperties = this.getSchemaProperties();
     for (const property of schemaProperties) {
       if (!isPropertySerializable(property) || !isPropertyWritable(property)) {
-        continue;
-      }
-
-      const type = normalizePropertyType(property.type);
-      if (type === 'relation' || type === 'collection') {
         continue;
       }
 

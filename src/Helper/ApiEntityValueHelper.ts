@@ -56,7 +56,12 @@ export function serializeOutgoingValue(
     return null;
   }
 
-  switch (normalizePropertyType(property.type)) {
+  const type = normalizePropertyType(property.type);
+  switch (type) {
+    case 'relation':
+      return serializeRelationValue(value);
+    case 'collection':
+      return serializeCollectionValue(value);
     case 'datetime': {
       if (value instanceof Date) {
         return Number.isNaN(value.getTime()) ? null : value.toISOString();
@@ -81,4 +86,24 @@ export function serializeOutgoingValue(
     default:
       return value;
   }
+}
+
+function serializeRelationValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (value && typeof value === 'object') {
+    const secureId = (value as { secureId?: unknown }).secureId;
+    return typeof secureId === 'string' ? secureId : null;
+  }
+
+  return null;
+}
+
+function serializeCollectionValue(value: unknown): string[] {
+  const items = Array.isArray(value) ? value : value == null ? [] : [value];
+  return items
+    .map((item) => serializeRelationValue(item))
+    .filter((item): item is string => item !== null);
 }
