@@ -13,6 +13,21 @@ export type ApiEntitySchema = {
   properties: unknown[];
 };
 
+import {
+  getSchemaPropertyByName,
+  isPropertySerializable,
+  isPropertyWritable,
+} from '../Helper/ApiEntitySchemaHelper.js';
+import {
+  normalizeIncomingValue,
+  normalizePropertyType,
+  serializeOutgoingValue,
+} from '../Helper/ApiEntityValueHelper.js';
+import {
+  lowerFirstCharacter,
+  normalizeRelationshipName,
+} from '../Helper/EntityNameHelper.js';
+
 export type ApiEntityConstructor<T extends AbstractApiEntity> = {
   new (data?: ApiEntityData): T;
   readonly entityName: string;
@@ -93,8 +108,7 @@ export default abstract class AbstractApiEntity {
         if (
           targetName &&
           stubTargetName &&
-          AbstractApiEntity.normalizeRelationshipName(targetName) ===
-            AbstractApiEntity.normalizeRelationshipName(stubTargetName)
+          normalizeRelationshipName(targetName) === normalizeRelationshipName(stubTargetName)
         ) {
           return entity;
         }
@@ -105,7 +119,7 @@ export default abstract class AbstractApiEntity {
   }
 
   getRelationship(name: string): AbstractApiEntity | undefined {
-    const normalizedTarget = AbstractApiEntity.normalizeRelationshipName(name);
+    const normalizedTarget = normalizeRelationshipName(name);
 
     for (const relationship of this.relationships) {
       const relationshipConstructor = relationship.constructor as typeof AbstractApiEntity;
@@ -115,9 +129,8 @@ export default abstract class AbstractApiEntity {
       }
 
       if (
-        AbstractApiEntity.normalizeRelationshipName(entityName) === normalizedTarget ||
-        AbstractApiEntity.normalizeRelationshipName(relationshipConstructor.name) ===
-          normalizedTarget
+        normalizeRelationshipName(entityName) === normalizedTarget ||
+        normalizeRelationshipName(relationshipConstructor.name) === normalizedTarget
       ) {
         return relationship;
       }
@@ -125,7 +138,7 @@ export default abstract class AbstractApiEntity {
       const stubTargetName = (relationship as { targetName?: string }).targetName;
       if (
         stubTargetName &&
-        AbstractApiEntity.normalizeRelationshipName(stubTargetName) === normalizedTarget
+        normalizeRelationshipName(stubTargetName) === normalizedTarget
       ) {
         return relationship;
       }
@@ -135,7 +148,7 @@ export default abstract class AbstractApiEntity {
   }
 
   getRelationships(name: string): AbstractApiEntity[] {
-    const normalizedTarget = AbstractApiEntity.normalizeRelationshipName(name);
+    const normalizedTarget = normalizeRelationshipName(name);
 
     return this.relationships.filter((relationship) => {
       const relationshipConstructor = relationship.constructor as typeof AbstractApiEntity;
@@ -145,17 +158,15 @@ export default abstract class AbstractApiEntity {
       }
 
       if (
-        AbstractApiEntity.normalizeRelationshipName(entityName) === normalizedTarget ||
-        AbstractApiEntity.normalizeRelationshipName(relationshipConstructor.name) ===
-          normalizedTarget
+        normalizeRelationshipName(entityName) === normalizedTarget ||
+        normalizeRelationshipName(relationshipConstructor.name) === normalizedTarget
       ) {
         return true;
       }
 
       const stubTargetName = (relationship as { targetName?: string }).targetName;
       return (
-        !!stubTargetName &&
-        AbstractApiEntity.normalizeRelationshipName(stubTargetName) === normalizedTarget
+        !!stubTargetName && normalizeRelationshipName(stubTargetName) === normalizedTarget
       );
     });
   }
@@ -191,17 +202,21 @@ export default abstract class AbstractApiEntity {
         continue;
       }
 
-      this.setDataValue(property.name, this.normalizeIncomingValue(property, data[apiField]));
+      this.setDataValue(property.name, normalizeIncomingValue(property, data[apiField]));
     }
   }
 
   set(name: string, value: unknown): void {
-    const property = this.getSchemaPropertyByName(name);
-    if (!this.isPropertyWritable(property)) {
+    const property = getSchemaPropertyByName(this.getSchemaProperties(), name);
+    if (!property) {
+      throw new Error(`[js-api] unknown property "${name}" on entity "${this.entityName}".`);
+    }
+
+    if (!isPropertyWritable(property)) {
       throw new Error(`[js-api] property "${name}" is read-only on entity "${this.entityName}".`);
     }
 
-    this.setDataValue(name, this.normalizeIncomingValue(property, value));
+    this.setDataValue(name, normalizeIncomingValue(property, value));
   }
 
   patch(data: ApiEntityData): void {
@@ -214,11 +229,11 @@ export default abstract class AbstractApiEntity {
     const output: ApiEntityData = {};
     const schemaProperties = this.getSchemaProperties();
     for (const property of schemaProperties) {
-      if (!this.isPropertySerializable(property) || !this.isPropertyWritable(property)) {
+      if (!isPropertySerializable(property) || !isPropertyWritable(property)) {
         continue;
       }
 
-      const type = this.normalizePropertyType(property.type);
+      const type = normalizePropertyType(property.type);
       if (type === 'relation' || type === 'collection') {
         continue;
       }
@@ -228,137 +243,16 @@ export default abstract class AbstractApiEntity {
       }
 
       const apiField = property.apiField && property.apiField ? property.apiField : property.name;
-      output[apiField] = this.serializeOutgoingValue(property, this.data[property.name]);
+      output[apiField] = serializeOutgoingValue(property, this.data[property.name]);
     }
 
     return output;
-  }
-
-  protected normalizeIncomingValue(
-    property: ApiEntitySchemaProperty,
-    value: unknown
-  ): unknown {
-    if (value === null || value === undefined) {
-      return null;
-    }
-
-    switch (this.normalizePropertyType(property.type)) {
-      case 'datetime': {
-        if (value instanceof Date) {
-          return Number.isNaN(value.getTime()) ? null : value;
-        }
-        const date = new Date(String(value));
-        return Number.isNaN(date.getTime()) ? null : date;
-      }
-      case 'integer': {
-        const num = Number(value);
-        return Number.isNaN(num) ? null : Math.trunc(num);
-      }
-      case 'float':
-      case 'double':
-      case 'decimal': {
-        const num = Number(value);
-        return Number.isNaN(num) ? null : num;
-      }
-      case 'boolean':
-        return typeof value === 'boolean' ? value : Boolean(value);
-      case 'string':
-        return String(value);
-      default:
-        return value;
-    }
-  }
-
-  protected serializeOutgoingValue(
-    property: ApiEntitySchemaProperty,
-    value: unknown
-  ): unknown {
-    if (value === undefined) {
-      return null;
-    }
-
-    if (value === null) {
-      return null;
-    }
-
-    switch (this.normalizePropertyType(property.type)) {
-      case 'datetime': {
-        if (value instanceof Date) {
-          return Number.isNaN(value.getTime()) ? null : value.toISOString();
-        }
-        const date = new Date(String(value));
-        return Number.isNaN(date.getTime()) ? null : date.toISOString();
-      }
-      case 'integer': {
-        const num = Number(value);
-        return Number.isNaN(num) ? null : Math.trunc(num);
-      }
-      case 'float':
-      case 'double':
-      case 'decimal': {
-        const num = Number(value);
-        return Number.isNaN(num) ? null : num;
-      }
-      case 'boolean':
-        return typeof value === 'boolean' ? value : Boolean(value);
-      case 'string':
-        return String(value);
-      default:
-        return value;
-    }
-  }
-
-  protected normalizePropertyType(type: unknown): string {
-    if (typeof type !== 'string') {
-      return '';
-    }
-
-    const lowered = type.toLowerCase();
-    if (lowered === 'datetimeinterface' || lowered === 'date') {
-      return 'datetime';
-    }
-
-    return lowered;
-  }
-
-  protected getSchemaPropertyByName(name: string): ApiEntitySchemaProperty {
-    for (const property of this.getSchemaProperties()) {
-      if (property.name === name) {
-        return property;
-      }
-    }
-
-    throw new Error(`[js-api] unknown property "${name}" on entity "${this.entityName}".`);
-  }
-
-  protected isPropertyWritable(property: ApiEntitySchemaProperty): boolean {
-    if (property.writable === false) {
-      return false;
-    }
-
-    return property.readOnly !== true;
-  }
-
-  protected isPropertySerializable(property: ApiEntitySchemaProperty): boolean {
-    return property.serializable !== false;
   }
 
   protected getSchemaProperties(): ApiEntitySchemaProperty[] {
     const entityType = this.constructor as typeof AbstractApiEntity;
     const schema = entityType.retrieveEntitySchema();
     return schema.properties as ApiEntitySchemaProperty[];
-  }
-
-  protected static normalizeRelationshipName(name: string): string {
-    return name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
-  }
-
-  protected static lowerFirstCharacter(value: string): string {
-    if (!value) {
-      return value;
-    }
-
-    return value[0].toLowerCase() + value.slice(1);
   }
 
   static useProxy = true;
@@ -410,7 +304,7 @@ export default abstract class AbstractApiEntity {
                 return many;
               }
 
-              const fieldName = AbstractApiEntity.lowerFirstCharacter(name);
+              const fieldName = lowerFirstCharacter(name);
               return obj.getDataValue(fieldName);
             };
           }

@@ -7,6 +7,10 @@ import AbstractApiEntity, {
 import ApiEntityStub from './ApiEntityStub.js';
 import type ApiEntityRegistry from './ApiEntityRegistry.js';
 import { stringToKebabCase } from '@wexample/js-helpers/Helper/String';
+import {
+  extractItems as extractItemsFromPayload,
+  extractPayload as extractPayloadData,
+} from '../Helper/ApiPayloadHelper.js';
 
 type RepositoryClass<T extends AbstractApiEntity> = {
   getEntityType(): ApiEntityConstructor<T>;
@@ -19,7 +23,6 @@ type ApiItem = ApiEntityData & {
   metadata?: ApiItemMetadata;
   relationships?: ApiItemRelationships;
 };
-type ApiPayload = Record<string, unknown> & { items?: ApiEntityData[] };
 type ApiQuery = Record<string, string | number | boolean>;
 type CreateFromApiItemOptions = {
   data: ApiEntityData;
@@ -294,23 +297,11 @@ export default abstract class AbstractApiRepository<
   }
 
   protected extractPayload(data: unknown): ApiEntityData {
-    if (data && typeof data === 'object' && !Array.isArray(data)) {
-      const record = data as Record<string, unknown>;
-      const payload = record['data'];
-
-      if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-        return payload as ApiEntityData;
-      }
-
-      return record as ApiEntityData;
-    }
-
-    return {};
+    return extractPayloadData(data);
   }
 
   protected extractItems(payload: ApiEntityData): ApiEntityData[] {
-    const items = (payload as ApiPayload)['items'];
-    return Array.isArray(items) ? items : [];
+    return extractItemsFromPayload(payload);
   }
 
   async fetchList(options: FetchListOptions = {}): Promise<T[]> {
