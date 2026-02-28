@@ -346,63 +346,7 @@ export default abstract class AbstractApiEntity {
   protected getSchemaProperties(): ApiEntitySchemaProperty[] {
     const entityType = this.constructor as typeof AbstractApiEntity;
     const schema = entityType.retrieveEntitySchema();
-    if (!schema || !Array.isArray(schema.properties)) {
-      throw new Error(`[js-api] schema missing or invalid for entity "${this.entityName}".`);
-    }
-
-    return schema.properties.map((property) =>
-      this.normalizeSchemaProperty(property as Record<string, unknown>)
-    );
-  }
-
-  protected normalizeSchemaProperty(
-    property: Record<string, unknown>
-  ): ApiEntitySchemaProperty {
-    const nameValue = property['name'];
-    if (typeof nameValue !== 'string' || !nameValue) {
-      throw new Error('[js-api] schema property missing name.');
-    }
-
-    const typeValue = property['type'];
-    if (typeValue !== undefined && typeof typeValue !== 'string') {
-      throw new Error(`[js-api] invalid schema type for property "${nameValue}".`);
-    }
-
-    const apiFieldValue = property['apiField'];
-    if (apiFieldValue !== undefined && typeof apiFieldValue !== 'string') {
-      throw new Error(`[js-api] invalid schema apiField for property "${nameValue}".`);
-    }
-
-    const writableValue = property['writable'];
-    if (writableValue !== undefined && typeof writableValue !== 'boolean') {
-      throw new Error(`[js-api] invalid schema writable for property "${nameValue}".`);
-    }
-
-    const readOnlyValue = property['readOnly'];
-    if (readOnlyValue !== undefined && typeof readOnlyValue !== 'boolean') {
-      throw new Error(`[js-api] invalid schema readOnly for property "${nameValue}".`);
-    }
-
-    const serializableValue = property['serializable'];
-    if (serializableValue !== undefined && typeof serializableValue !== 'boolean') {
-      throw new Error(`[js-api] invalid schema serializable for property "${nameValue}".`);
-    }
-
-    const writable = typeof writableValue === 'boolean' ? writableValue : undefined;
-    const readOnly = typeof readOnlyValue === 'boolean' ? readOnlyValue : undefined;
-    const serializable =
-      typeof serializableValue === 'boolean' ? serializableValue : undefined;
-    const type = typeof typeValue === 'string' ? typeValue : undefined;
-    const apiField = typeof apiFieldValue === 'string' ? apiFieldValue : undefined;
-
-    return {
-      name: nameValue,
-      type,
-      apiField,
-      writable,
-      readOnly,
-      serializable,
-    };
+    return schema.properties as ApiEntitySchemaProperty[];
   }
 
   protected static normalizeRelationshipName(name: string): string {
