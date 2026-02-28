@@ -18,14 +18,15 @@ export default abstract class AbstractApiEntity {
   readonly entityName?: string;
   metadata: ApiEntityMetadata;
   relationships: AbstractApiEntity[];
+  protected readonly data: ApiEntityData;
 
   constructor(data: ApiEntityData = {}) {
+    this.data = {};
     this.secureId = data.secureId as string | undefined;
     this.metadata = [];
     this.relationships = [];
     this.entityName = (this.constructor as typeof AbstractApiEntity).entityName;
-
-    console.log(data)
+    this.setData(data);
 
     // Allow dynamic getX()/getXSecureId() via Proxy, similar to PHP __call.
     if ((this.constructor as typeof AbstractApiEntity).useProxy) {
@@ -145,10 +146,32 @@ export default abstract class AbstractApiEntity {
   }
 
   getSecureIdFor(name: string): string | undefined {
-    const property = `${name}SecureId` as keyof this;
-    const value = this[property];
+    const property = `${name}SecureId`;
+    const value = this.getDataValue(property);
 
     return typeof value === 'string' ? value : undefined;
+  }
+
+  setDataValue(name: string, value: unknown): void {
+    this.data[name] = value;
+
+    if (name === 'secureId') {
+      this.secureId = typeof value === 'string' ? value : undefined;
+    }
+  }
+
+  getDataValue(name: string): unknown {
+    return this.data[name];
+  }
+
+  getData(): Readonly<ApiEntityData> {
+    return this.data;
+  }
+
+  setData(data: ApiEntityData): void {
+    for (const [name, value] of Object.entries(data)) {
+      this.setDataValue(name, value);
+    }
   }
 
   toApiPayload(): ApiEntityData {
@@ -161,6 +184,14 @@ export default abstract class AbstractApiEntity {
 
   protected static normalizeRelationshipName(name: string): string {
     return name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+  }
+
+  protected static lowerFirstCharacter(value: string): string {
+    if (!value) {
+      return value;
+    }
+
+    return value[0].toLowerCase() + value.slice(1);
   }
 
   static useProxy = true;
@@ -179,6 +210,11 @@ export default abstract class AbstractApiEntity {
 
         if (value !== undefined) {
           return value;
+        }
+
+        const dataValue = obj.getDataValue(prop);
+        if (dataValue !== undefined) {
+          return dataValue;
         }
 
         if (prop.startsWith('get') && prop.length > 3) {
@@ -203,7 +239,12 @@ export default abstract class AbstractApiEntity {
               }
 
               const many = obj.getRelationships(name);
-              return many.length ? many : undefined;
+              if (many.length) {
+                return many;
+              }
+
+              const fieldName = AbstractApiEntity.lowerFirstCharacter(name);
+              return obj.getDataValue(fieldName);
             };
           }
         }

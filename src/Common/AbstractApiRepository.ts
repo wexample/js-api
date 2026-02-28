@@ -271,7 +271,7 @@ export default abstract class AbstractApiRepository<
 
       const rawValue = data[apiField];
       const value = this.normalizeFieldValue(type, rawValue);
-      (entity as unknown as Record<string, unknown>)[name] = value;
+      entity.setDataValue(name, value);
     }
   }
 
