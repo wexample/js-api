@@ -82,7 +82,7 @@ export default abstract class AbstractApiRepository<
   T extends AbstractApiEntity = AbstractApiEntity,
 > {
   public static readonly CACHE_NAME_ALL = 'allOperators';
-  public static readonly CACHE_TTL_DEFAULT = 5 * 60 * 1000;
+  public static readonly CACHE_TTL_DEFAULT: number | null = null;
 
   protected readonly client: AbstractApiEntitiesClient;
   private readonly namedListCache: Map<string, NamedListCacheEntry<T>> = new Map();
@@ -405,7 +405,7 @@ export default abstract class AbstractApiRepository<
     const {
       cacheName,
       fetch,
-      ttlMs = null,
+      ttlMs = AbstractApiRepository.CACHE_TTL_DEFAULT,
       forceRefresh = false,
     } = options;
 
@@ -473,7 +473,7 @@ export default abstract class AbstractApiRepository<
       cacheName,
       secureId,
       endpoint = 'show',
-      ttlMs = null,
+      ttlMs = AbstractApiRepository.CACHE_TTL_DEFAULT,
       forceRefresh = false,
     } = options;
 
