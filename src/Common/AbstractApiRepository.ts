@@ -5,6 +5,7 @@ import AbstractApiEntity, {
 } from './AbstractApiEntity.js';
 import type ApiEntityRegistry from './ApiEntityRegistry.js';
 import { stringToKebabCase } from '@wexample/js-helpers/Helper/String';
+import { normalizeRelationshipName } from '../Helper/EntityNameHelper.js';
 import {
   extractItems as extractItemsFromPayload,
   extractPayload as extractPayloadData,
@@ -178,7 +179,7 @@ export default abstract class AbstractApiRepository<
     const output: AbstractApiEntity[] = [];
 
     for (const [, relEntry] of Object.entries(relMap)) {
-      const relationshipType = relEntry.type as string;
+      const relationshipType = normalizeRelationshipName(relEntry.type as string);
       const repository = this.client.getRepository(relationshipType) as AbstractApiRepository;
       output.push(repository.createFromApiItem(relEntry));
     }
