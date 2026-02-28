@@ -567,7 +567,7 @@ export default abstract class AbstractApiRepository<
         path: this.buildPath(endpoint),
         options: {
           json: {
-            items: payloads,
+            entities: payloads,
           },
           searchParams: query,
         },
