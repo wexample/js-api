@@ -39,14 +39,14 @@ type PostOptions = {
   endpoint: string;
   payload?: Record<string, unknown>;
 };
-type CreateEntityOptions = {
-  payload?: Record<string, unknown>;
-  endpoint?: string;
+type PostEntityOptions = {
+  endpoint: string;
+  entity: AbstractApiEntity;
   query?: ApiQuery;
 };
-type CreateEntitiesOptions = {
-  payloads: Record<string, unknown>[];
-  endpoint?: string;
+type PostEntitiesOptions = {
+  endpoint: string;
+  entities: AbstractApiEntity[];
   query?: ApiQuery;
 };
 type DeleteEntityOptions = {
@@ -601,12 +601,13 @@ export default abstract class AbstractApiRepository<
       .json<unknown>();
   }
 
-  async createEntity(options: CreateEntityOptions = {}): Promise<T> {
+  async postEntity(options: PostEntityOptions): Promise<T> {
     const {
-      payload = {},
-      endpoint = 'create',
+      endpoint,
+      entity,
       query = {},
     } = options;
+    const payload = entity.toApiPayload();
 
     const data = await this.client
       .post({
@@ -624,12 +625,13 @@ export default abstract class AbstractApiRepository<
     return this.createFromApiItem({ data: item, metadata, relationships });
   }
 
-  async createEntities(options: CreateEntitiesOptions): Promise<T[]> {
+  async postEntities(options: PostEntitiesOptions): Promise<T[]> {
     const {
-      payloads,
-      endpoint = 'create',
+      endpoint,
+      entities,
       query = {},
     } = options;
+    const payloads = entities.map((entity) => entity.toApiPayload());
 
     const data = await this.client
       .post({
