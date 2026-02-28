@@ -8,8 +8,12 @@ export type ApiEntityConstructor<T extends AbstractApiEntity> = {
   fromApiCollection(collection: ApiEntityData[]): T[];
 };
 
+type EntitySchemaResolver = (entityName: string) => Record<string, unknown> | null;
+
 export default abstract class AbstractApiEntity {
   static readonly entityName: string;
+  static entitySchema?: Record<string, unknown>;
+  private static entitySchemaResolver: EntitySchemaResolver | null = null;
   secureId?: string;
   readonly entityName?: string;
   metadata: ApiEntityMetadata;
@@ -20,6 +24,8 @@ export default abstract class AbstractApiEntity {
     this.metadata = [];
     this.relationships = [];
     this.entityName = (this.constructor as typeof AbstractApiEntity).entityName;
+
+    console.log(data)
 
     // Allow dynamic getX()/getXSecureId() via Proxy, similar to PHP __call.
     if ((this.constructor as typeof AbstractApiEntity).useProxy) {
@@ -143,6 +149,14 @@ export default abstract class AbstractApiEntity {
     const value = this[property];
 
     return typeof value === 'string' ? value : undefined;
+  }
+
+  toApiPayload(): ApiEntityData {
+    const output: ApiEntityData = {};
+
+    // TODO
+
+    return output;
   }
 
   protected static normalizeRelationshipName(name: string): string {
