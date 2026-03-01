@@ -153,7 +153,6 @@ export default abstract class AbstractApiRepository<
 
   protected createFromApiCollection(collection: ApiEntityData[]): T[] {
     return collection.map((item) => {
-      console.log(item)
       return this.createFromApiItem(item as ApiItem);
     });
   }

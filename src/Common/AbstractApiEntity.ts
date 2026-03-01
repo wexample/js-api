@@ -49,7 +49,7 @@ export default abstract class AbstractApiEntity {
     this.metadata = [];
     this.relationships = [];
     this.entityName = (this.constructor as typeof AbstractApiEntity).entityName;
-    console.trace(data);
+
     this.patch(data);
 
     // Allow dynamic getX()/getXSecureId() via Proxy, similar to PHP __call.
