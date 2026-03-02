@@ -55,13 +55,13 @@ type DeleteEntityOptions = {
   payload?: Record<string, unknown> | null;
 };
 type FetchListCachedByNameOptions<T extends AbstractApiEntity> = {
-  cacheName: string;
+  cacheName?: string;
   fetch: () => Promise<T[]>;
   ttlMs?: number | null;
   forceRefresh?: boolean;
 };
 type FetchCachedByNameOptions = {
-  cacheName: string;
+  cacheName?: string;
   secureId: string | number;
   endpoint?: string;
   ttlMs?: number | null;
@@ -78,6 +78,7 @@ type NamedEntityCacheEntry<T extends AbstractApiEntity> = {
   inFlight?: Promise<T>;
 };
 type FetchAllCachedOptions = {
+  cacheName?: string;
   ttlMs?: number | null;
   forceRefresh?: boolean;
 };
@@ -85,7 +86,8 @@ type FetchAllCachedOptions = {
 export default abstract class AbstractApiRepository<
   T extends AbstractApiEntity = AbstractApiEntity,
 > {
-  public static readonly CACHE_NAME_ALL = 'allOperators';
+  public static readonly CACHE_NAME_ALL = 'all';
+  public static readonly CACHE_NAME_ENTITY = 'entity';
   public static readonly CACHE_TTL_DEFAULT: number | null = null;
 
   protected readonly client: AbstractApiEntitiesClient;
@@ -100,12 +102,14 @@ export default abstract class AbstractApiRepository<
     options: FetchAllCachedOptions = {}
   ): Promise<AbstractApiEntity[]> {
     const {
+      cacheName,
       ttlMs = AbstractApiRepository.CACHE_TTL_DEFAULT,
       forceRefresh = false,
     } = options;
+    const resolvedCacheName = cacheName?.trim() || this.getDefaultListCacheName();
 
     return this.fetchListCachedByName({
-      cacheName: AbstractApiRepository.CACHE_NAME_ALL,
+      cacheName: resolvedCacheName,
       ttlMs,
       forceRefresh,
       fetch: () => this.fetchList(),
@@ -228,13 +232,10 @@ export default abstract class AbstractApiRepository<
       ttlMs = AbstractApiRepository.CACHE_TTL_DEFAULT,
       forceRefresh = false,
     } = options;
-
-    if (!cacheName) {
-      throw new Error('cacheName is required for fetchListCachedByName().');
-    }
+    const resolvedCacheName = cacheName?.trim() || this.getDefaultListCacheName();
 
     const now = Date.now();
-    const previousEntry = this.namedListCache.get(cacheName);
+    const previousEntry = this.namedListCache.get(resolvedCacheName);
 
     if (
       !forceRefresh &&
@@ -251,25 +252,25 @@ export default abstract class AbstractApiRepository<
     const inFlight = (async () => {
       try {
         const list = await fetch();
-        this.namedListCache.set(cacheName, {
+        this.namedListCache.set(resolvedCacheName, {
           value: list,
           expiresAt: this.computeExpiresAt(ttlMs),
         });
         return list;
       } catch (error) {
         if (previousEntry) {
-          this.namedListCache.set(cacheName, {
+          this.namedListCache.set(resolvedCacheName, {
             value: previousEntry.value,
             expiresAt: previousEntry.expiresAt,
           });
         } else {
-          this.namedListCache.delete(cacheName);
+          this.namedListCache.delete(resolvedCacheName);
         }
         throw error;
       }
     })();
 
-    this.namedListCache.set(cacheName, {
+    this.namedListCache.set(resolvedCacheName, {
       value: previousEntry?.value,
       expiresAt: previousEntry?.expiresAt ?? null,
       inFlight,
@@ -296,17 +297,14 @@ export default abstract class AbstractApiRepository<
       ttlMs = AbstractApiRepository.CACHE_TTL_DEFAULT,
       forceRefresh = false,
     } = options;
-
-    if (!cacheName) {
-      throw new Error('cacheName is required for fetchCachedByName().');
-    }
+    const resolvedCacheName = cacheName?.trim() || this.getDefaultEntityCacheName();
 
     const identifier = String(secureId ?? '').trim();
     if (!identifier) {
       throw new Error('secureId is required for fetchCachedByName().');
     }
 
-    const cacheKey = this.buildNamedEntityCacheKey(cacheName, endpoint, identifier);
+    const cacheKey = this.buildNamedEntityCacheKey(resolvedCacheName, endpoint, identifier);
     const now = Date.now();
     const previousEntry = this.namedEntityCache.get(cacheKey);
 
@@ -527,6 +525,14 @@ export default abstract class AbstractApiRepository<
     secureId: string
   ): string {
     return `${cacheName}::${endpoint}::${secureId}`;
+  }
+
+  private getDefaultListCacheName(): string {
+    return `${this.getEntityType().entityName}::${AbstractApiRepository.CACHE_NAME_ALL}`;
+  }
+
+  private getDefaultEntityCacheName(): string {
+    return `${this.getEntityType().entityName}::${AbstractApiRepository.CACHE_NAME_ENTITY}`;
   }
 
   private findCachedEntityBySecureId(secureId: string): T | undefined {
