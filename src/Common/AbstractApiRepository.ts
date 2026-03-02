@@ -16,12 +16,12 @@ type RepositoryClass<T extends AbstractApiEntity> = {
 };
 
 type ApiItemMetadata = Record<string, unknown> | unknown[];
-type ApiItemRelationships = Record<string, unknown> | unknown[];
-type ApiItem = ApiEntityData & {
-  type?: string;
-  entity?: ApiEntityData;
-  metadata?: ApiItemMetadata;
-  relationships?: ApiItemRelationships;
+type ApiItemRelationships = Record<string, ApiItem>;
+type ApiItem = {
+  type: string;
+  entity: ApiEntityData;
+  metadata: ApiItemMetadata;
+  relationships: ApiItemRelationships;
 };
 type ApiQuery = Record<string, string | number | boolean>;
 type FetchListOptions = {
@@ -139,48 +139,44 @@ export default abstract class AbstractApiRepository<
   }
 
   protected createFromApiItem(item: ApiItem): T {
-    const [data, metadata, relationships] = this.splitApiItem(item);
     const entityType = this.getEntityType();
-    const entity = entityType.fromApi(data);
-    const createdRelationships = this.createRelationships(relationships);
+    this.assertApiItemType(item, entityType);
+    const entity = entityType.fromApi(item.entity);
+    const createdRelationships = this.createRelationships(item.relationships);
 
-    entity.setMetadata(metadata);
+    entity.setMetadata(item.metadata);
     this.getEntityRegistry().registerEntity(entity);
     entity.setRelationships(createdRelationships);
 
     return entity;
   }
 
-  protected createFromApiCollection(collection: ApiEntityData[]): T[] {
+  protected createFromApiCollection(collection: ApiItem[]): T[] {
     return collection.map((item) => {
-      return this.createFromApiItem(item as ApiItem);
+      return this.createFromApiItem(item);
     });
   }
 
-  protected splitApiItem(
-    item: ApiEntityData
-  ): [ApiEntityData, ApiItemMetadata, ApiItemRelationships] {
-    const apiItem = item as ApiItem;
-    const data = apiItem.entity && typeof apiItem.entity === 'object' ? apiItem.entity : item;
-    const metadata =
-      apiItem.metadata && typeof apiItem.metadata === 'object' ? apiItem.metadata : [];
-    const relationships =
-      apiItem.relationships && typeof apiItem.relationships === 'object'
-        ? apiItem.relationships
-        : [];
-
-    return [data, metadata, relationships];
+  protected assertApiItemType(
+    item: ApiItem,
+    entityType: ApiEntityConstructor<T>
+  ): void {
+    if (item.type !== entityType.entityName) {
+      throw new Error(
+        `API item type mismatch: expected "${entityType.entityName}", got "${item.type}".`
+      );
+    }
   }
 
   protected createRelationships(
     relationships: ApiItemRelationships
   ): AbstractApiEntity[] {
-    const relMap = relationships as Record<string, ApiItem>;
     const output: AbstractApiEntity[] = [];
 
-    for (const [, relEntry] of Object.entries(relMap)) {
-      const relationshipType = normalizeRelationshipName(relEntry.type as string);
+    for (const [, relEntry] of Object.entries(relationships)) {
+      const relationshipType = normalizeRelationshipName(relEntry.type);
       const repository = this.client.getRepository(relationshipType) as AbstractApiRepository;
+
       output.push(repository.createFromApiItem(relEntry));
     }
 
@@ -197,8 +193,8 @@ export default abstract class AbstractApiRepository<
     return extractPayloadData(data);
   }
 
-  protected extractItems(payload: ApiEntityData): ApiEntityData[] {
-    return extractItemsFromPayload(payload);
+  protected extractItems(payload: ApiEntityData): ApiItem[] {
+    return extractItemsFromPayload(payload).map((item) => this.parseApiItem(item));
   }
 
   async fetchList(options: FetchListOptions = {}): Promise<T[]> {
@@ -405,13 +401,8 @@ export default abstract class AbstractApiRepository<
       .json<unknown>();
 
     const payload = this.extractPayload(data);
-    const [item, metadata, relationships] = this.splitApiItem(payload);
-
-    return this.createFromApiItem({
-      entity: item,
-      metadata,
-      relationships,
-    });
+    const item = this.parseApiItem(payload);
+    return this.createFromApiItem(item);
   }
 
   async post(options: PostOptions): Promise<unknown> {
@@ -443,13 +434,8 @@ export default abstract class AbstractApiRepository<
       .json<unknown>();
 
     const responsePayload = this.extractPayload(data);
-    const [item, metadata, relationships] = this.splitApiItem(responsePayload);
-
-    return this.createFromApiItem({
-      entity: item,
-      metadata,
-      relationships,
-    });
+    const item = this.parseApiItem(responsePayload);
+    return this.createFromApiItem(item);
   }
 
   async createEntity(entity: T): Promise<T> {
@@ -562,5 +548,9 @@ export default abstract class AbstractApiRepository<
     }
 
     return undefined;
+  }
+
+  private parseApiItem(value: unknown): ApiItem {
+    return value as ApiItem;
   }
 }
