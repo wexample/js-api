@@ -1,14 +1,27 @@
 const WithAsyncComponentLoadVueMixin = {
+  props: {
+    asyncComponentAutoLoad: {
+      type: Boolean,
+      default: true,
+    },
+  },
+
   data() {
     return {
       asyncComponentLoaded: false,
-      asyncComponentLoading: true,
+      asyncComponentLoading: false,
+      asyncComponentSleeping: false,
       asyncComponentError: null,
       asyncComponentLoadPromise: null,
     };
   },
 
   async mounted() {
+    if (!this.asyncComponentAutoLoad) {
+      this.asyncComponentSleeping = true;
+      return;
+    }
+
     await this.loadAsyncComponent(true);
   },
 
@@ -56,6 +69,8 @@ const WithAsyncComponentLoadVueMixin = {
     },
 
     async loadAsyncComponent(forceRefresh = false) {
+      this.asyncComponentSleeping = false;
+
       if (this.asyncComponentLoading && !forceRefresh) {
         return this.asyncComponentLoadPromise;
       }
@@ -81,9 +96,15 @@ const WithAsyncComponentLoadVueMixin = {
       return this.asyncComponentLoadPromise;
     },
 
+    async wakeAsyncComponent(forceRefresh = false) {
+      this.asyncComponentSleeping = false;
+      return this.loadAsyncComponent(forceRefresh);
+    },
+
     resetAsyncComponentState() {
       this.asyncComponentLoaded = false;
-      this.asyncComponentLoading = true;
+      this.asyncComponentLoading = false;
+      this.asyncComponentSleeping = false;
       this.asyncComponentError = null;
       this.asyncComponentLoadPromise = null;
     },
