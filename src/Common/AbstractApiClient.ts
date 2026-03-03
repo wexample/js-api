@@ -11,12 +11,24 @@ type ApiClientGetOptions = {
   path: string;
   options?: Options;
 };
+type ApiClientAbsoluteGetOptions = {
+  url: string;
+  options?: Options;
+};
 type ApiClientPostOptions = {
   path: string;
   options?: Options;
 };
+type ApiClientAbsolutePostOptions = {
+  url: string;
+  options?: Options;
+};
 type ApiClientDeleteOptions = {
   path: string;
+  options?: Options;
+};
+type ApiClientAbsoluteDeleteOptions = {
+  url: string;
   options?: Options;
 };
 type ApiClientPostFormDataOptions = {
@@ -39,6 +51,7 @@ type SetDefaultHeaderOptions = {
 export default abstract class AbstractApiClient {
   public readonly baseUrl: string | null;
   protected readonly client: KyInstance;
+  protected readonly absoluteClient: KyInstance;
   protected bearerToken: string | null;
   protected defaultHeaders: Record<string, string>;
 
@@ -71,6 +84,7 @@ export default abstract class AbstractApiClient {
     this.client = this.baseUrl
       ? ky.create({ ...clientOptions, prefixUrl: this.baseUrl.replace(/\/+$/, '') })
       : ky.create(clientOptions);
+    this.absoluteClient = ky.create(clientOptions);
   }
 
   static create<T extends AbstractApiClient, U extends ApiClientOptions>(
@@ -87,12 +101,24 @@ export default abstract class AbstractApiClient {
     return this.client.get(this.normalizePath(path), options);
   }
 
+  getAbsolute({ url, options }: ApiClientAbsoluteGetOptions) {
+    return this.absoluteClient.get(url, options);
+  }
+
   post({ path, options }: ApiClientPostOptions) {
     return this.client.post(this.normalizePath(path), options);
   }
 
+  postAbsolute({ url, options }: ApiClientAbsolutePostOptions) {
+    return this.absoluteClient.post(url, options);
+  }
+
   delete({ path, options }: ApiClientDeleteOptions) {
     return this.client.delete(this.normalizePath(path), options);
+  }
+
+  deleteAbsolute({ url, options }: ApiClientAbsoluteDeleteOptions) {
+    return this.absoluteClient.delete(url, options);
   }
 
   postFormData({ path, formData, options }: ApiClientPostFormDataOptions) {
