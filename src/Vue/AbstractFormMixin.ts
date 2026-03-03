@@ -13,6 +13,17 @@ type ApiSubmitRequestOptions = {
   payload?: unknown;
 };
 
+type ApiClientRequestOptions = {
+  path: string;
+  options?: Record<string, unknown>;
+};
+
+type ApiClientLike = {
+  get: (options: ApiClientRequestOptions) => { json: <T>() => Promise<T> };
+  post: (options: ApiClientRequestOptions) => { json: <T>() => Promise<T> };
+  delete: (options: ApiClientRequestOptions) => { json: <T>() => Promise<T> };
+};
+
 type ApiValidationSummary = {
   global?: string[];
   fields?: Record<string, string[]>;
@@ -54,12 +65,28 @@ const AbstractFormMixin = {
         method = 'POST',
         payload = {},
       } = options;
+      const apiClient = this.app.getClient() as ApiClientLike;
+      const resolvedMethod = String(method || 'POST').toUpperCase();
 
-      return this.$apiClient.requestJson(
-        endpoint,
-        method,
-        payload
-      );
+      if (resolvedMethod === 'GET') {
+        return apiClient.get({
+          path: endpoint,
+        }).json<unknown>();
+      }
+
+      if (resolvedMethod === 'DELETE') {
+        return apiClient.delete({
+          path: endpoint,
+          options: payload == null ? undefined : { json: payload },
+        }).json<unknown>();
+      }
+
+      return apiClient.post({
+        path: endpoint,
+        options: {
+          json: payload ?? {},
+        },
+      }).json<unknown>();
     },
 
     async onSubmit() {
