@@ -1,4 +1,5 @@
 import ky, { type KyInstance, type Options } from 'ky';
+import ApiHttpError from './Errors/ApiHttpError';
 
 export type ApiClientOptions = Readonly<{
   baseUrl?: string | null;
@@ -73,6 +74,19 @@ export default abstract class AbstractApiClient {
             headers.set('Authorization', `Bearer ${this.bearerToken}`);
           }
         },
+      ],
+      beforeError: [
+        (async (error: unknown) => {
+          const httpError = error as { name?: string; response?: Response; request?: Request };
+          if (httpError?.name !== 'HTTPError' || !httpError.response) {
+            return error as any;
+          }
+
+          return ApiHttpError.fromResponse(httpError.response, {
+            method: httpError.request?.method || 'GET',
+            cause: error,
+          });
+        }) as any,
       ],
     };
 

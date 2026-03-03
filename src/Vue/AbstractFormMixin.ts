@@ -36,6 +36,12 @@ type ApiValidationResponse = {
   };
 };
 
+type ApiErrorWithJsonResponse = {
+  response?: {
+    json?: <T>() => Promise<T>;
+  };
+};
+
 const AbstractFormMixin = {
   data() {
     return {
@@ -95,14 +101,27 @@ const AbstractFormMixin = {
         throw new Error('Missing submit endpoint. Override getSubmitEndpoint() or set submitEndpoint.');
       }
 
-      const response = await this.requestApiSubmit({
-        endpoint,
-        method: this.getSubmitMethod(),
-        payload: this.buildSubmitPayload(),
-      });
+      return this.submitFormAction({
+        asyncAction: async () => {
+          try {
+            const response = await this.requestApiSubmit({
+              endpoint,
+              method: this.getSubmitMethod(),
+              payload: this.buildSubmitPayload(),
+            });
 
-      this.handleApiValidationResponse(response);
-      return response;
+            this.handleApiValidationResponse(response);
+            return response;
+          } catch (error) {
+            const errorResponse = await this.extractApiErrorResponse(error);
+            if (errorResponse && this.handleApiValidationResponse(errorResponse)) {
+              return errorResponse;
+            }
+
+            throw error;
+          }
+        },
+      });
     },
 
     clearFormErrors() {
@@ -140,6 +159,23 @@ const AbstractFormMixin = {
       const summary = safeResponse?.data?.summary;
 
       this.applyApiValidationSummary(summary);
+    },
+
+    async extractApiErrorResponse(error: unknown): Promise<unknown | null> {
+      const safeError = error && typeof error === 'object'
+        ? error as ApiErrorWithJsonResponse
+        : {};
+      const errorResponse = safeError.response;
+
+      if (!errorResponse || typeof errorResponse.json !== 'function') {
+        return null;
+      }
+
+      try {
+        return await errorResponse.json<unknown>();
+      } catch {
+        return null;
+      }
     },
 
     responseHasValidationError(response: unknown): boolean {
