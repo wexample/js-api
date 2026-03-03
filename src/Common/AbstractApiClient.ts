@@ -1,10 +1,16 @@
 import ky, { type KyInstance, type Options } from 'ky';
 import ApiHttpError from './Errors/ApiHttpError';
 
+export type ApiClientErrorContext = {
+  method?: string;
+  pathOrUrl?: string;
+};
+
 export type ApiClientOptions = Readonly<{
   baseUrl?: string | null;
   bearerToken?: string | null;
   defaultHeaders?: Record<string, string>;
+  onError?: (error: unknown, context?: ApiClientErrorContext) => void | Promise<void>;
 }>;
 
 type NoExtra<T, U extends T> = U & Record<Exclude<keyof U, keyof T>, never>;
@@ -55,11 +61,13 @@ export default abstract class AbstractApiClient {
   protected readonly absoluteClient: KyInstance;
   protected bearerToken: string | null;
   protected defaultHeaders: Record<string, string>;
+  protected onError?: (error: unknown, context?: ApiClientErrorContext) => void | Promise<void>;
 
   protected constructor(options: ApiClientOptions = {}) {
     this.baseUrl = options.baseUrl ?? null;
     this.bearerToken = options.bearerToken ?? null;
     this.defaultHeaders = { ...(options.defaultHeaders ?? {}) };
+    this.onError = options.onError;
 
     const hooks = {
       beforeRequest: [
@@ -78,14 +86,25 @@ export default abstract class AbstractApiClient {
       beforeError: [
         (async (error: unknown) => {
           const httpError = error as { name?: string; response?: Response; request?: Request };
+          let mappedError: unknown = error;
+
+          if (httpError?.name === 'HTTPError' && httpError.response) {
+            mappedError = await ApiHttpError.fromResponse(httpError.response, {
+              method: httpError.request?.method || 'GET',
+              cause: error,
+            });
+          }
+
+          await this.onError?.(mappedError, {
+            method: httpError?.request?.method,
+            pathOrUrl: httpError?.request?.url,
+          });
+
           if (httpError?.name !== 'HTTPError' || !httpError.response) {
             return error as any;
           }
 
-          return ApiHttpError.fromResponse(httpError.response, {
-            method: httpError.request?.method || 'GET',
-            cause: error,
-          });
+          return mappedError as any;
         }) as any,
       ],
     };
