@@ -1,4 +1,5 @@
 import AbstractAppError from './AbstractAppError';
+import { serializeForLog } from '@wexample/js-helpers/Helper/Serialize';
 
 export type ApiHttpErrorOptions = {
   status: number;
@@ -90,5 +91,19 @@ export default class ApiHttpError extends AbstractAppError {
   }): string {
     const method = options.method || 'GET';
     return `${method} ${options.url} failed with HTTP ${options.status} ${options.statusText}`;
+  }
+
+  override toLogPayload() {
+    return {
+      ...super.toLogPayload(),
+      context: {
+        ...this.context,
+        status: this.status,
+        statusText: this.statusText,
+        method: this.method,
+        url: this.url,
+      },
+      payload: serializeForLog(this.payload),
+    };
   }
 }
