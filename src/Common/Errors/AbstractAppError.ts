@@ -16,8 +16,11 @@ export default abstract class AbstractAppError extends Error {
   public readonly context: Record<string, unknown>;
 
   protected constructor(options: AbstractAppErrorOptions) {
-    super(options.message, { cause: options.cause });
+    super(options.message);
     this.name = new.target.name;
+    if (typeof options.cause !== 'undefined') {
+      (this as Error & { cause?: unknown }).cause = options.cause;
+    }
     this.kind = options.kind;
     this.code = options.code;
     this.severity = options.severity || 'error';
