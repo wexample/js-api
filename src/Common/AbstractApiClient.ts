@@ -63,9 +63,14 @@ export default abstract class AbstractApiClient {
       ],
     };
 
+    const clientOptions = {
+      hooks,
+      retry: 0,
+    };
+
     this.client = this.baseUrl
-      ? ky.create({ prefixUrl: this.baseUrl.replace(/\/+$/, ''), hooks })
-      : ky.create({ hooks });
+      ? ky.create({ ...clientOptions, prefixUrl: this.baseUrl.replace(/\/+$/, '') })
+      : ky.create(clientOptions);
   }
 
   static create<T extends AbstractApiClient, U extends ApiClientOptions>(
