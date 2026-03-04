@@ -57,6 +57,11 @@ type SetDefaultHeaderOptions = {
 
 type ApiRequestErrorHandlingContext = {
   captureError?: boolean;
+  onError?: (options: {
+    error: unknown;
+    context?: ApiClientErrorContext;
+    requestError?: ApiClientBeforeErrorInput;
+  }) => boolean | Promise<boolean>;
 };
 
 type ApiClientBeforeErrorInput = {
@@ -108,7 +113,7 @@ export default abstract class AbstractApiClient {
             });
           }
 
-          if (!this.shouldCaptureError(httpError)) {
+          if (!await this.shouldCaptureError(httpError, mappedError)) {
             return mappedError as any;
           }
 
@@ -137,8 +142,26 @@ export default abstract class AbstractApiClient {
     this.absoluteClient = ky.create(clientOptions);
   }
 
-  protected shouldCaptureError(error: ApiClientBeforeErrorInput): boolean {
-    return error.options?.context?.captureError !== false;
+  protected async shouldCaptureError(
+    error: ApiClientBeforeErrorInput,
+    mappedError: unknown
+  ): Promise<boolean> {
+    const requestContext = error.options?.context;
+
+    if (typeof requestContext?.onError === 'function') {
+      const shouldCapture = await requestContext.onError({
+        error: mappedError,
+        context: {
+          method: error.request?.method,
+          pathOrUrl: error.request?.url,
+        },
+        requestError: error,
+      });
+
+      return shouldCapture !== false;
+    }
+
+    return requestContext?.captureError !== false;
   }
 
   static create<T extends AbstractApiClient, U extends ApiClientOptions>(

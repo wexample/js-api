@@ -18,6 +18,7 @@ type ApiClientRequestOptions = {
   options?: {
     context?: {
       captureError?: boolean;
+      onError?: (options: { error: unknown }) => boolean | Promise<boolean>;
     };
   } & Record<string, unknown>;
 };
@@ -79,7 +80,7 @@ const AbstractFormMixin = {
       const apiClient = this.app.getClient() as ApiClientLike;
       const resolvedMethod = String(method || 'POST').toUpperCase();
       const requestContext = {
-        captureError: false,
+        onError: async (context: { error: unknown }) => this.shouldCaptureApiSubmitError(context.error),
       };
 
       if (resolvedMethod === 'GET') {
@@ -200,7 +201,22 @@ const AbstractFormMixin = {
         ? response as ApiValidationResponse
         : {};
 
-      return safeResponse?.type === 'error';
+      if (safeResponse?.type !== 'error') {
+        return false;
+      }
+
+      const summary = safeResponse?.data?.summary;
+      return !!(summary && typeof summary === 'object');
+    },
+
+    async shouldCaptureApiSubmitError(error: unknown): Promise<boolean> {
+      const errorResponse = await this.extractApiErrorResponse(error);
+
+      if (!errorResponse) {
+        return true;
+      }
+
+      return !this.responseHasValidationError(errorResponse);
     },
 
     handleApiValidationResponse(response: unknown): boolean {
