@@ -114,10 +114,6 @@ const AbstractFormMixin = {
       if (!endpoint) {
         throw new Error('Missing submit endpoint. Override getSubmitEndpoint() or set submitEndpoint.');
       }
-      console.log('[AbstractFormMixin] submit', {
-        endpoint,
-        method: this.getSubmitMethod(),
-      });
 
       return this.submitFormAction({
         asyncAction: async () => {
@@ -132,7 +128,6 @@ const AbstractFormMixin = {
             return response;
           } catch (error) {
             const errorResponse = await this.extractApiErrorResponse(error);
-            console.log('[AbstractFormMixin] submit catch', { error, errorResponse });
             if (errorResponse && this.handleApiValidationResponse(errorResponse)) {
               return errorResponse;
             }
@@ -158,13 +153,7 @@ const AbstractFormMixin = {
     },
 
     getFieldErrors(fieldPath: string): string[] {
-      const errors = this.fieldErrors[fieldPath] || [];
-      console.log('[AbstractFormMixin] getFieldErrors', {
-        fieldPath,
-        availableKeys: Object.keys(this.fieldErrors || {}),
-        errors,
-      });
-      return errors;
+      return this.fieldErrors[fieldPath] || [];
     },
 
     applyApiValidationSummary(summary?: ApiValidationSummary): void {
@@ -174,12 +163,6 @@ const AbstractFormMixin = {
         fieldErrors: safeSummary.fields && typeof safeSummary.fields === 'object'
           ? safeSummary.fields
           : {},
-      });
-      console.log('[AbstractFormMixin] validation summary applied', {
-        formErrors: this.formErrors,
-        fieldErrors: this.fieldErrors,
-        fieldErrorKeys: Object.keys(this.fieldErrors || {}),
-        textSimpleErrors: this.fieldErrors?.text_simple || [],
       });
     },
 
