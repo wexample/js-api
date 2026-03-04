@@ -55,6 +55,19 @@ type SetDefaultHeaderOptions = {
   value: string;
 };
 
+type ApiRequestErrorHandlingContext = {
+  suppressGlobalErrorCapture?: boolean;
+};
+
+type ApiClientBeforeErrorInput = {
+  name?: string;
+  response?: Response;
+  request?: Request;
+  options?: {
+    context?: ApiRequestErrorHandlingContext;
+  };
+};
+
 export default abstract class AbstractApiClient {
   public readonly baseUrl: string | null;
   protected readonly client: KyInstance;
@@ -85,7 +98,7 @@ export default abstract class AbstractApiClient {
       ],
       beforeError: [
         (async (error: unknown) => {
-          const httpError = error as { name?: string; response?: Response; request?: Request };
+          const httpError = error as ApiClientBeforeErrorInput;
           let mappedError: unknown = error;
 
           if (httpError?.name === 'HTTPError' && httpError.response) {
@@ -95,9 +108,13 @@ export default abstract class AbstractApiClient {
             });
           }
 
+          if (!this.shouldCaptureError(httpError)) {
+            return mappedError as any;
+          }
+
           await this.onError?.(mappedError, {
-            method: httpError?.request?.method,
-            pathOrUrl: httpError?.request?.url,
+            method: httpError.request?.method,
+            pathOrUrl: httpError.request?.url,
           });
 
           if (httpError?.name !== 'HTTPError' || !httpError.response) {
@@ -118,6 +135,10 @@ export default abstract class AbstractApiClient {
       ? ky.create({ ...clientOptions, prefixUrl: this.baseUrl.replace(/\/+$/, '') })
       : ky.create(clientOptions);
     this.absoluteClient = ky.create(clientOptions);
+  }
+
+  protected shouldCaptureError(error: ApiClientBeforeErrorInput): boolean {
+    return error.options?.context?.suppressGlobalErrorCapture !== true;
   }
 
   static create<T extends AbstractApiClient, U extends ApiClientOptions>(

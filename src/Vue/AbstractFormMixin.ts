@@ -15,7 +15,11 @@ type ApiSubmitRequestOptions = {
 
 type ApiClientRequestOptions = {
   path: string;
-  options?: Record<string, unknown>;
+  options?: {
+    context?: {
+      suppressGlobalErrorCapture?: boolean;
+    };
+  } & Record<string, unknown>;
 };
 
 type ApiClientLike = {
@@ -40,6 +44,7 @@ type ApiErrorWithJsonResponse = {
   response?: {
     json?: <T>() => Promise<T>;
   };
+  payload?: unknown;
 };
 
 const AbstractFormMixin = {
@@ -73,17 +78,25 @@ const AbstractFormMixin = {
       } = options;
       const apiClient = this.app.getClient() as ApiClientLike;
       const resolvedMethod = String(method || 'POST').toUpperCase();
+      const requestContext = {
+        suppressGlobalErrorCapture: true,
+      };
 
       if (resolvedMethod === 'GET') {
         return apiClient.get({
           path: endpoint,
+          options: {
+            context: requestContext,
+          },
         }).json<unknown>();
       }
 
       if (resolvedMethod === 'DELETE') {
         return apiClient.delete({
           path: endpoint,
-          options: payload == null ? undefined : { json: payload },
+          options: payload == null
+            ? { context: requestContext }
+            : { json: payload, context: requestContext },
         }).json<unknown>();
       }
 
@@ -91,6 +104,7 @@ const AbstractFormMixin = {
         path: endpoint,
         options: {
           json: payload ?? {},
+          context: requestContext,
         },
       }).json<unknown>();
     },
@@ -168,7 +182,10 @@ const AbstractFormMixin = {
       const errorResponse = safeError.response;
 
       if (!errorResponse || typeof errorResponse.json !== 'function') {
-        return null;
+        const payload = safeError.payload;
+        return payload && typeof payload === 'object'
+          ? payload
+          : null;
       }
 
       try {
