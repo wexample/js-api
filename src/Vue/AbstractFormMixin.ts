@@ -17,7 +17,7 @@ type ApiClientRequestOptions = {
   path: string;
   options?: {
     context?: {
-      suppressGlobalErrorCapture?: boolean;
+      captureError?: boolean;
     };
   } & Record<string, unknown>;
 };
@@ -79,7 +79,7 @@ const AbstractFormMixin = {
       const apiClient = this.app.getClient() as ApiClientLike;
       const resolvedMethod = String(method || 'POST').toUpperCase();
       const requestContext = {
-        suppressGlobalErrorCapture: true,
+        captureError: false,
       };
 
       if (resolvedMethod === 'GET') {

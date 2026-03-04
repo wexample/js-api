@@ -56,7 +56,7 @@ type SetDefaultHeaderOptions = {
 };
 
 type ApiRequestErrorHandlingContext = {
-  suppressGlobalErrorCapture?: boolean;
+  captureError?: boolean;
 };
 
 type ApiClientBeforeErrorInput = {
@@ -138,7 +138,7 @@ export default abstract class AbstractApiClient {
   }
 
   protected shouldCaptureError(error: ApiClientBeforeErrorInput): boolean {
-    return error.options?.context?.suppressGlobalErrorCapture !== true;
+    return error.options?.context?.captureError !== false;
   }
 
   static create<T extends AbstractApiClient, U extends ApiClientOptions>(
