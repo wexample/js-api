@@ -6,10 +6,6 @@ import AbstractApiEntity, {
 import type ApiEntityRegistry from './ApiEntityRegistry.js';
 import { stringToKebabCase } from '@wexample/js-helpers/Helper/String';
 import { normalizeRelationshipName } from '../Helper/EntityNameHelper.js';
-import {
-  extractItems as extractItemsFromPayload,
-  extractPayload as extractPayloadData,
-} from '../Helper/ApiPayloadHelper.js';
 
 type RepositoryClass<T extends AbstractApiEntity> = {
   getEntityType(): ApiEntityConstructor<T>;
@@ -194,11 +190,28 @@ export default abstract class AbstractApiRepository<
   }
 
   protected extractPayload(data: unknown): ApiEntityData {
-    return extractPayloadData(data);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Invalid API response: expected an object containing a "data" object.');
+    }
+
+    const record = data as Record<string, unknown>;
+    const payload = record.data;
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new Error('Invalid API response: missing or invalid "data" object.');
+    }
+
+    return payload as ApiEntityData;
   }
 
   protected extractItems(payload: ApiEntityData): ApiItem[] {
-    return extractItemsFromPayload(payload).map((item) => this.parseApiItem(item));
+    const items = (payload as Record<string, unknown>).items;
+
+    if (!Array.isArray(items)) {
+      throw new Error('Invalid API payload: missing "items" array.');
+    }
+
+    return items.map((item) => this.parseApiItem(item));
   }
 
   async fetchList(options: FetchListOptions = {}): Promise<T[]> {
