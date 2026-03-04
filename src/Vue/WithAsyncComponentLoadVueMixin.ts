@@ -26,6 +26,23 @@ const WithAsyncComponentLoadVueMixin = {
   },
 
   methods: {
+    showAsyncSpinner() {
+      this.asyncComponentLoading = true;
+    },
+
+    hideAsyncSpinner() {
+      this.asyncComponentLoading = false;
+    },
+
+    async withAsyncSpinner(asyncCallback) {
+      this.showAsyncSpinner();
+      try {
+        return await asyncCallback.call(this);
+      } finally {
+        this.hideAsyncSpinner();
+      }
+    },
+
     async asyncComponentLoad() {
       // Override in component to load required async data.
     },

@@ -43,6 +43,52 @@ const AbstractEntitySingleMixin = {
   },
 
   methods: {
+    resolveEntityCssTypeName() {
+      try {
+        const entityClass = this.getEntityClass?.();
+        const rawTypeName = entityClass?.entityName ?? entityClass?.name;
+        if (!rawTypeName || typeof rawTypeName !== 'string') {
+          return null;
+        }
+
+        return rawTypeName.trim().toLowerCase().replace(/_/g, '-');
+      } catch {
+        return null;
+      }
+    },
+
+    getEntityCssClassDeclarations() {
+      const entityType = this.resolveEntityCssTypeName();
+      const classes = [
+        'entity',
+        ['entity--single', true],
+        ['entity--loaded', !!this.asyncComponentLoaded],
+        ['entity--loading', !!this.asyncComponentLoading],
+        ['entity--sleeping', !!this.asyncComponentSleeping],
+        ['entity--error', !!this.asyncComponentError],
+        ['entity--has-data', !!this.entity],
+        ['entity--empty', !this.entity],
+        ['entity--busy', !!this.entityLoading],
+        ['entity--type--' + entityType, !!entityType],
+      ];
+
+      const display = this.getEntityDisplay();
+      if (display) {
+        classes.push('entity--display--' + display)
+        classes.push('entity--' + entityType + '--display--' + display)
+      }
+
+      return classes;
+    },
+
+    getEntityDisplay() {
+      return null;
+    },
+
+    getWrapperCssClassDeclarations() {
+      return this.getEntityCssClassDeclarations();
+    },
+
     validateEntitySource() {
       const hasEntityInstance = this.entityInstance !== null && this.entityInstance !== undefined;
       const hasEntitySecureId =
