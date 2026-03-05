@@ -39,6 +39,12 @@ type PostEntityOptions = {
   entity: AbstractApiEntity;
   query?: ApiQuery;
 };
+type PostEntityBySecureIdOptions = {
+  endpoint: string;
+  entity: AbstractApiEntity;
+  secureId?: string | number;
+  query?: ApiQuery;
+};
 type PostEntitiesOptions = {
   endpoint: string;
   entities: AbstractApiEntity[];
@@ -437,6 +443,36 @@ export default abstract class AbstractApiRepository<
     const data = await this.client
       .post({
         path: this.buildPath(endpoint),
+        options: {
+          json: payload,
+          searchParams: query,
+        },
+      })
+      .json<unknown>();
+
+    const responsePayload = this.extractPayload(data);
+    const item = this.parseApiItem(responsePayload);
+    return this.createFromApiItem(item);
+  }
+
+  async postEntityBySecureId(options: PostEntityBySecureIdOptions): Promise<T> {
+    const {
+      endpoint,
+      entity,
+      secureId,
+      query = {},
+    } = options;
+    const resolvedSecureId = String(secureId ?? entity.secureId ?? '').trim();
+
+    if (!resolvedSecureId) {
+      throw new Error('Missing secureId for postEntityBySecureId().');
+    }
+
+    const payload = entity.toApiPayload();
+
+    const data = await this.client
+      .post({
+        path: this.buildPath(`${endpoint}/${encodeURIComponent(resolvedSecureId)}`),
         options: {
           json: payload,
           searchParams: query,
