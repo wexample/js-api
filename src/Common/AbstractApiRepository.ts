@@ -144,7 +144,7 @@ export default abstract class AbstractApiRepository<
     return repositoryClass.getEntityType();
   }
 
-  protected createFromApiItem(item: ApiItem): T {
+  public createFromApiItem(item: ApiItem): T {
     const entityType = this.getEntityType();
     this.assertApiItemType(item, entityType);
     const entity = entityType.fromApi(item.entity);
