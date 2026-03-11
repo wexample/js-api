@@ -1,4 +1,5 @@
 import type AbstractApiEntity from '../Common/AbstractApiEntity.js';
+import { stringToCamelCase } from '@wexample/js-helpers/Helper/String';
 import AbstractEntityManipulatorMixin from './AbstractEntityManipulatorMixin.js';
 import WithAsyncComponentLoadVueMixin from './WithAsyncComponentLoadVueMixin.js';
 
@@ -126,15 +127,21 @@ const AbstractEntitySingleMixin = {
       return String(secureId);
     },
 
-    getCachedRelationshipsMap(): Record<string, Promise<AbstractApiEntity[]>> | string[] {
+    getCachedRelationshipsMap(): Record<string, Promise<AbstractApiEntity[]> | null> | string[] {
       return {};
     },
 
     async _loadCachedRelationships(): Promise<void> {
       const map = this.getCachedRelationshipsMap();
       const entries: [string, Promise<AbstractApiEntity[]>][] = Array.isArray(map)
-        ? map.map((name: string) => [name, (this as any).getEntityRepository(name).fetchAllCached()])
-        : Object.entries(map);
+        ? map.map((name: string) => [
+            stringToCamelCase(name),
+            (this as any).getEntityRepository(name).fetchAllCached(),
+          ])
+        : Object.entries(map).map(([name, promise]) => [
+            stringToCamelCase(name),
+            promise ?? (this as any).getEntityRepository(name).fetchAllCached(),
+          ]);
 
       if (!entries.length) return;
 
@@ -146,8 +153,9 @@ const AbstractEntitySingleMixin = {
     },
 
     getCachedRelationship(name: string): AbstractApiEntity | null {
-      const secureId = (this as any).entity.data[name];
-      return this.cachedRelationships[name]?.find((e: AbstractApiEntity) => e.secureId === secureId) ?? null;
+      const camelName = stringToCamelCase(name);
+      const secureId = (this as any).entity.data[camelName];
+      return this.cachedRelationships[camelName]?.find((e: AbstractApiEntity) => e.secureId === secureId) ?? null;
     },
 
     async asyncComponentLoad() {
