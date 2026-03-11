@@ -306,7 +306,7 @@ export default abstract class AbstractApiRepository<
     this.namedListCache.clear();
   }
 
-  async fetchCachedByName(
+  async fetchCached(
     options: FetchCachedByNameOptions
   ): Promise<T> {
     const {
@@ -320,7 +320,7 @@ export default abstract class AbstractApiRepository<
 
     const identifier = String(secureId ?? '').trim();
     if (!identifier) {
-      throw new Error('secureId is required for fetchCachedByName().');
+      throw new Error('secureId is required for fetchCached().');
     }
 
     const cacheKey = this.buildNamedEntityCacheKey(resolvedCacheName, endpoint, identifier);
