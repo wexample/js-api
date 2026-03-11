@@ -24,7 +24,6 @@ import {
 } from '../Helper/ApiEntityValueHelper.js';
 import {
   lowerFirstCharacter,
-  normalizeRelationshipName,
 } from '../Helper/EntityNameHelper.js';
 
 export type ApiEntityConstructor<T extends AbstractApiEntity> = {
@@ -108,7 +107,7 @@ export default abstract class AbstractApiEntity {
         if (
           targetName &&
           stubTargetName &&
-          normalizeRelationshipName(targetName) === normalizeRelationshipName(stubTargetName)
+          targetName === stubTargetName
         ) {
           return entity;
         }
@@ -119,8 +118,6 @@ export default abstract class AbstractApiEntity {
   }
 
   getRelationship(name: string): AbstractApiEntity | undefined {
-    const normalizedTarget = normalizeRelationshipName(name);
-
     for (const relationship of this.relationships) {
       const relationshipConstructor = relationship.constructor as typeof AbstractApiEntity;
       const entityName = relationship.entityName;
@@ -128,18 +125,12 @@ export default abstract class AbstractApiEntity {
         throw new Error('[js-api] relationship missing entityName');
       }
 
-      if (
-        normalizeRelationshipName(entityName) === normalizedTarget ||
-        normalizeRelationshipName(relationshipConstructor.name) === normalizedTarget
-      ) {
+      if (entityName === name || relationshipConstructor.name === name) {
         return relationship;
       }
 
       const stubTargetName = (relationship as { targetName?: string }).targetName;
-      if (
-        stubTargetName &&
-        normalizeRelationshipName(stubTargetName) === normalizedTarget
-      ) {
+      if (stubTargetName && stubTargetName === name) {
         return relationship;
       }
     }
@@ -148,8 +139,6 @@ export default abstract class AbstractApiEntity {
   }
 
   getRelationships(name: string): AbstractApiEntity[] {
-    const normalizedTarget = normalizeRelationshipName(name);
-
     return this.relationships.filter((relationship) => {
       const relationshipConstructor = relationship.constructor as typeof AbstractApiEntity;
       const entityName = relationship.entityName;
@@ -157,17 +146,12 @@ export default abstract class AbstractApiEntity {
         throw new Error('[js-api] relationship missing entityName');
       }
 
-      if (
-        normalizeRelationshipName(entityName) === normalizedTarget ||
-        normalizeRelationshipName(relationshipConstructor.name) === normalizedTarget
-      ) {
+      if (entityName === name || relationshipConstructor.name === name) {
         return true;
       }
 
       const stubTargetName = (relationship as { targetName?: string }).targetName;
-      return (
-        !!stubTargetName && normalizeRelationshipName(stubTargetName) === normalizedTarget
-      );
+      return !!stubTargetName && stubTargetName === name;
     });
   }
 
