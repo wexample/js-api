@@ -152,9 +152,9 @@ const AbstractEntitySingleMixin = {
       );
     },
 
-    getCachedRelationship(name: string): AbstractApiEntity | null {
+    getCachedRelationship(name: string, entity?: AbstractApiEntity): AbstractApiEntity | null {
       const camelName = stringToCamelCase(name);
-      const secureId = (this as any).entity.data[camelName];
+      const secureId = (entity ?? (this as any).entity).data[camelName];
       return this.cachedRelationships[camelName]?.find((e: AbstractApiEntity) => e.secureId === secureId) ?? null;
     },
 
