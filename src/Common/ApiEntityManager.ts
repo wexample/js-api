@@ -37,7 +37,7 @@ export default class ApiEntityManager {
 
     if (!registryEntry) {
       throw new Error(
-        `Entity ${entityName} is not registered. Available repositories: ${Object.keys(this.registry).join(', ')}`
+        `Entity "${entityName}" is not registered. Available repositories: ${Object.keys(this.registry).join(', ')}`
       );
     }
 
