@@ -1,3 +1,4 @@
+import type AbstractApiEntity from '../Common/AbstractApiEntity.js';
 import AbstractEntityManipulatorMixin from './AbstractEntityManipulatorMixin.js';
 import WithAsyncComponentLoadVueMixin from './WithAsyncComponentLoadVueMixin.js';
 
@@ -22,6 +23,7 @@ const AbstractEntitySingleMixin = {
     return {
       entity: this.entityInstance ?? null,
       entityLoading: false,
+      cachedRelationships: {} as Record<string, AbstractApiEntity[]>,
     };
   },
 
@@ -124,15 +126,40 @@ const AbstractEntitySingleMixin = {
       return String(secureId);
     },
 
+    getCachedRelationshipsMap(): Record<string, Promise<AbstractApiEntity[]>> | string[] {
+      return {};
+    },
+
+    async _loadCachedRelationships(): Promise<void> {
+      const map = this.getCachedRelationshipsMap();
+      const entries: [string, Promise<AbstractApiEntity[]>][] = Array.isArray(map)
+        ? map.map((name: string) => [name, (this as any).getEntityRepository(name).fetchAllCached()])
+        : Object.entries(map);
+
+      if (!entries.length) return;
+
+      await Promise.all(
+        entries.map(async ([key, promise]) => {
+          this.cachedRelationships[key] = await promise;
+        })
+      );
+    },
+
+    getCachedRelationship(name: string): AbstractApiEntity | null {
+      const secureId = (this as any).entity.data[name];
+      return this.cachedRelationships[name]?.find((e: AbstractApiEntity) => e.secureId === secureId) ?? null;
+    },
+
     async asyncComponentLoad() {
       this.validateEntitySource();
 
       if (this.entityInstance) {
         this.entity = this.entityInstance;
+        await this._loadCachedRelationships();
         return;
       }
 
-      await this.fetchEntity();
+      await Promise.all([this.fetchEntity(), this._loadCachedRelationships()]);
     },
 
     async deleteCurrentEntity() {
