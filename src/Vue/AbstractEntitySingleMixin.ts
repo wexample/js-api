@@ -144,6 +144,11 @@ const AbstractEntitySingleMixin = {
       return this.cachedRelationships[camelName]?.find((e: AbstractApiEntity) => e.secureId === secureId) ?? null;
     },
 
+    getCachedRelationshipsBySecureIds(name: string, secureIds: string[]): AbstractApiEntity[] {
+      const camelName = stringToCamelCase(name);
+      return this.cachedRelationships[camelName]?.filter((e: AbstractApiEntity) => secureIds.includes(e.secureId)) ?? [];
+    },
+
     async asyncComponentLoad() {
       this.validateEntitySource();
 
