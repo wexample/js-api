@@ -1,5 +1,5 @@
 import type AbstractApiEntity from '../Common/AbstractApiEntity.js';
-import { stringToCamelCase } from '@wexample/js-helpers/Helper/String';
+import { stringToCamelCase, stringToKebab } from '@wexample/js-helpers/Helper/String';
 import AbstractEntityManipulatorMixin from './AbstractEntityManipulatorMixin.js';
 import WithAsyncComponentLoadVueMixin from './WithAsyncComponentLoadVueMixin.js';
 
@@ -47,17 +47,7 @@ const AbstractEntitySingleMixin = {
 
   methods: {
     resolveEntityCssTypeName() {
-      try {
-        const entityClass = this.getEntityClass?.();
-        const rawTypeName = entityClass?.entityName ?? entityClass?.name;
-        if (!rawTypeName || typeof rawTypeName !== 'string') {
-          return null;
-        }
-
-        return rawTypeName.trim().toLowerCase().replace(/_/g, '-');
-      } catch {
-        return null;
-      }
+      return stringToKebab(this.getEntityClass());
     },
 
     getEntityCssClassDeclarations() {
