@@ -46,13 +46,10 @@ const AbstractEntitySingleMixin = {
   },
 
   methods: {
-    resolveEntityCssTypeName() {
-      return stringToKebab(this.getEntityClass());
-    },
-
     getEntityCssClassDeclarations() {
-      const entityType = this.resolveEntityCssTypeName();
-      const classes = [
+      const display = this.getEntityDisplay();
+      const entityType = stringToKebab(this.getEntityClass().entityName);
+      const classes: Array<string | [string, boolean]> = [
         'entity',
         ['entity--single', true],
         ['entity--loaded', !!this.asyncComponentLoaded],
@@ -65,7 +62,6 @@ const AbstractEntitySingleMixin = {
         ['entity--type--' + entityType, !!entityType],
       ];
 
-      const display = this.getEntityDisplay();
       if (display) {
         classes.push('entity--display--' + display)
         classes.push('entity--' + entityType + '--display--' + display)

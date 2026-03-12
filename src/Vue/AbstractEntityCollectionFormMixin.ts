@@ -1,5 +1,4 @@
 import type AbstractApiEntity from '../Common/AbstractApiEntity.js';
-import AbstractEntityManipulatorMixin from './AbstractEntityManipulatorMixin.js';
 import AbstractFormMixin from './AbstractFormMixin.js';
 
 type FormErrorsPayload = {
@@ -18,7 +17,7 @@ type SubmitEntitiesOptions = {
 };
 
 const AbstractEntityCollectionFormMixin = {
-  mixins: [AbstractEntityManipulatorMixin, AbstractFormMixin],
+  mixins: [AbstractFormMixin],
 
   methods: {
     buildSubmitEntity(): AbstractApiEntity | null {
