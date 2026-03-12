@@ -13,17 +13,11 @@ const AbstractGraphMixin = {
       this.graphHeight = height;
     });
 
-    this._graphResizeObserver.observe(this.getGraphEl());
+    this._graphResizeObserver.observe(this.$el);
   },
 
   beforeUnmount() {
     this._graphResizeObserver?.disconnect();
-  },
-
-  methods: {
-    getGraphEl(): Element {
-      throw new Error('getGraphEl() must be implemented.');
-    },
   },
 };
 
