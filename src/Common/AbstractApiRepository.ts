@@ -460,7 +460,7 @@ export default abstract class AbstractApiRepository<
       secureId,
       query = {},
     } = options;
-    const resolvedSecureId = String(secureId ?? entity.secureId ?? '').trim();
+    const resolvedSecureId = secureId ?? entity.secureId;
 
     if (!resolvedSecureId) {
       throw new Error('Missing secureId for postEntityBySecureId().');
@@ -544,10 +544,6 @@ export default abstract class AbstractApiRepository<
 
   protected getEntityRegistry(): ApiEntityRegistry {
     const client = this.client as unknown as { getEntityRegistry?: () => ApiEntityRegistry };
-    if (typeof client.getEntityRegistry !== 'function') {
-      throw new Error('Client must implement getEntityRegistry() for relationship hydration.');
-    }
-
     return client.getEntityRegistry();
   }
 
