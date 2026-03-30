@@ -1,0 +1,55 @@
+import { serializeForLog } from '@wexample/js-helpers/Helper/Serialize';
+export type AppErrorSeverity = 'info' | 'warning' | 'error' | 'fatal';
+export type AppErrorLogPayload = {
+  name: string;
+  kind: string;
+  message: string;
+  code?: string;
+  severity: AppErrorSeverity;
+  context: Record<string, unknown>;
+  stack?: string;
+  cause?: unknown;
+};
+
+export type AbstractAppErrorOptions = {
+  message: string;
+  kind: string;
+  code?: string;
+  severity?: AppErrorSeverity;
+  context?: Record<string, unknown>;
+  cause?: unknown;
+};
+
+export default abstract class AbstractAppError extends Error {
+  public readonly kind: string;
+  public readonly code?: string;
+  public readonly severity: AppErrorSeverity;
+  public readonly context: Record<string, unknown>;
+
+  protected constructor(options: AbstractAppErrorOptions) {
+    super(options.message);
+    this.name = new.target.name;
+    if (typeof options.cause !== 'undefined') {
+      (this as Error & { cause?: unknown }).cause = options.cause;
+    }
+    this.kind = options.kind;
+    this.code = options.code;
+    this.severity = options.severity || 'error';
+    this.context = { ...(options.context || {}) };
+  }
+
+  toLogPayload(): AppErrorLogPayload {
+    const cause = (this as Error & { cause?: unknown }).cause;
+
+    return {
+      name: this.name,
+      kind: this.kind,
+      message: this.message,
+      code: this.code,
+      severity: this.severity,
+      context: serializeForLog(this.context) as Record<string, unknown>,
+      stack: this.stack,
+      cause: typeof cause === 'undefined' ? undefined : serializeForLog(cause),
+    };
+  }
+}
