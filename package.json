@@ -1,5 +1,5 @@
 {
-  "version": "0.0.19",
+  "version": "0.0.29",
   "type": "module",
   "name": "@wexample/js-api",
   "scripts": {
@@ -27,6 +27,13 @@
     "./*": {
       "types": "./src/*.ts",
       "default": "./src/*.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
     }
   }
 }

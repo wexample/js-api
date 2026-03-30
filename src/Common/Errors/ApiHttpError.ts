@@ -1,5 +1,5 @@
-import AbstractAppError from './AbstractAppError';
 import { serializeForLog } from '@wexample/js-helpers/Helper/Serialize';
+import AbstractAppError from './AbstractAppError';
 
 export type ApiHttpErrorOptions = {
   status: number;

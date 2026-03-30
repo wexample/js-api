@@ -72,48 +72,54 @@ const AbstractFormMixin = {
     },
 
     async requestApiSubmit(options: ApiSubmitRequestOptions) {
-      const {
-        endpoint,
-        method = 'POST',
-        payload = {},
-      } = options;
+      const { endpoint, method = 'POST', payload = {} } = options;
       const apiClient = this.app.getClient() as ApiClientLike;
       const resolvedMethod = String(method || 'POST').toUpperCase();
       const requestContext = {
-        onError: async (context: { error: unknown }) => this.shouldCaptureApiSubmitError(context.error),
+        onError: async (context: { error: unknown }) =>
+          this.shouldCaptureApiSubmitError(context.error),
       };
 
       if (resolvedMethod === 'GET') {
-        return apiClient.get({
-          path: endpoint,
-          options: {
-            context: requestContext,
-          },
-        }).json<unknown>();
+        return apiClient
+          .get({
+            path: endpoint,
+            options: {
+              context: requestContext,
+            },
+          })
+          .json<unknown>();
       }
 
       if (resolvedMethod === 'DELETE') {
-        return apiClient.delete({
-          path: endpoint,
-          options: payload == null
-            ? { context: requestContext }
-            : { json: payload, context: requestContext },
-        }).json<unknown>();
+        return apiClient
+          .delete({
+            path: endpoint,
+            options:
+              payload == null
+                ? { context: requestContext }
+                : { json: payload, context: requestContext },
+          })
+          .json<unknown>();
       }
 
-      return apiClient.post({
-        path: endpoint,
-        options: {
-          json: payload ?? {},
-          context: requestContext,
-        },
-      }).json<unknown>();
+      return apiClient
+        .post({
+          path: endpoint,
+          options: {
+            json: payload ?? {},
+            context: requestContext,
+          },
+        })
+        .json<unknown>();
     },
 
     async onSubmit() {
       const endpoint = this.getSubmitEndpoint();
       if (!endpoint) {
-        throw new Error('Missing submit endpoint. Override getSubmitEndpoint() or set submitEndpoint.');
+        throw new Error(
+          'Missing submit endpoint. Override getSubmitEndpoint() or set submitEndpoint.'
+        );
       }
 
       return this.submitFormAction({
@@ -148,9 +154,7 @@ const AbstractFormMixin = {
       const { formErrors = [], fieldErrors = {} } = options;
 
       this.formErrors = Array.isArray(formErrors) ? formErrors : [];
-      this.fieldErrors = fieldErrors && typeof fieldErrors === 'object'
-        ? fieldErrors
-        : {};
+      this.fieldErrors = fieldErrors && typeof fieldErrors === 'object' ? fieldErrors : {};
     },
 
     getFieldErrors(fieldPath: string): string[] {
@@ -161,32 +165,29 @@ const AbstractFormMixin = {
       const safeSummary = summary && typeof summary === 'object' ? summary : {};
       this.setFormErrors({
         formErrors: Array.isArray(safeSummary.global) ? safeSummary.global : [],
-        fieldErrors: safeSummary.fields && typeof safeSummary.fields === 'object'
-          ? safeSummary.fields
-          : {},
+        fieldErrors:
+          safeSummary.fields && typeof safeSummary.fields === 'object' ? safeSummary.fields : {},
       });
     },
 
     applyApiValidationFromResponse(response: unknown): void {
-      const safeResponse = response && typeof response === 'object'
-        ? response as { data?: { summary?: ApiValidationSummary } }
-        : {};
+      const safeResponse =
+        response && typeof response === 'object'
+          ? (response as { data?: { summary?: ApiValidationSummary } })
+          : {};
       const summary = safeResponse?.data?.summary;
 
       this.applyApiValidationSummary(summary);
     },
 
     async extractApiErrorResponse(error: unknown): Promise<unknown | null> {
-      const safeError = error && typeof error === 'object'
-        ? error as ApiErrorWithJsonResponse
-        : {};
+      const safeError =
+        error && typeof error === 'object' ? (error as ApiErrorWithJsonResponse) : {};
       const errorResponse = safeError.response;
 
       if (!errorResponse || typeof errorResponse.json !== 'function') {
         const payload = safeError.payload;
-        return payload && typeof payload === 'object'
-          ? payload
-          : null;
+        return payload && typeof payload === 'object' ? payload : null;
       }
 
       try {
@@ -197,9 +198,8 @@ const AbstractFormMixin = {
     },
 
     responseHasValidationError(response: unknown): boolean {
-      const safeResponse = response && typeof response === 'object'
-        ? response as ApiValidationResponse
-        : {};
+      const safeResponse =
+        response && typeof response === 'object' ? (response as ApiValidationResponse) : {};
 
       if (safeResponse?.type !== 'error') {
         return false;

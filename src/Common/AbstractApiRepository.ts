@@ -1,10 +1,10 @@
+import { stringToKebabCase } from '@wexample/js-helpers/Helper/String';
 import type AbstractApiEntitiesClient from './AbstractApiEntitiesClient.js';
 import AbstractApiEntity, {
   type ApiEntityConstructor,
   type ApiEntityData,
 } from './AbstractApiEntity.js';
 import type ApiEntityRegistry from './ApiEntityRegistry.js';
-import { stringToKebabCase } from '@wexample/js-helpers/Helper/String';
 
 type RepositoryClass<T extends AbstractApiEntity> = {
   getEntityType(): ApiEntityConstructor<T>;
@@ -99,9 +99,7 @@ export default abstract class AbstractApiRepository<
     this.client = client;
   }
 
-  async fetchAllCached(
-    options: FetchAllCachedOptions = {}
-  ): Promise<AbstractApiEntity[]> {
+  async fetchAllCached(options: FetchAllCachedOptions = {}): Promise<AbstractApiEntity[]> {
     const {
       cacheName,
       ttlMs = AbstractApiRepository.CACHE_TTL_DEFAULT,
@@ -162,10 +160,7 @@ export default abstract class AbstractApiRepository<
     });
   }
 
-  protected assertApiItemType(
-    item: ApiItem,
-    entityType: ApiEntityConstructor<T>
-  ): void {
+  protected assertApiItemType(item: ApiItem, entityType: ApiEntityConstructor<T>): void {
     if (item.type !== entityType.entityName) {
       throw new Error(
         `API item type mismatch: expected "${entityType.entityName}", got "${item.type}".`
@@ -173,9 +168,7 @@ export default abstract class AbstractApiRepository<
     }
   }
 
-  protected createRelationships(
-    relationships: ApiItemRelationships
-  ): AbstractApiEntity[] {
+  protected createRelationships(relationships: ApiItemRelationships): AbstractApiEntity[] {
     const output: AbstractApiEntity[] = [];
 
     for (const [, relEntry] of Object.entries(relationships)) {
@@ -240,9 +233,7 @@ export default abstract class AbstractApiRepository<
     return this.createFromApiCollection(items);
   }
 
-  async fetchListCachedByName(
-    options: FetchListCachedByNameOptions<T>
-  ): Promise<T[]> {
+  async fetchListCachedByName(options: FetchListCachedByNameOptions<T>): Promise<T[]> {
     const {
       cacheName,
       fetch,
@@ -254,11 +245,7 @@ export default abstract class AbstractApiRepository<
     const now = Date.now();
     const previousEntry = this.namedListCache.get(resolvedCacheName);
 
-    if (
-      !forceRefresh &&
-      previousEntry?.value &&
-      this.isCacheEntryFresh(previousEntry, now)
-    ) {
+    if (!forceRefresh && previousEntry?.value && this.isCacheEntryFresh(previousEntry, now)) {
       return previousEntry.value;
     }
 
@@ -304,9 +291,7 @@ export default abstract class AbstractApiRepository<
     this.namedListCache.clear();
   }
 
-  async fetchCached(
-    options: FetchCachedByNameOptions
-  ): Promise<T> {
+  async fetchCached(options: FetchCachedByNameOptions): Promise<T> {
     const {
       cacheName,
       secureId,
@@ -325,11 +310,7 @@ export default abstract class AbstractApiRepository<
     const now = Date.now();
     const previousEntry = this.namedEntityCache.get(cacheKey);
 
-    if (
-      !forceRefresh &&
-      previousEntry?.value &&
-      this.isCacheEntryFresh(previousEntry, now)
-    ) {
+    if (!forceRefresh && previousEntry?.value && this.isCacheEntryFresh(previousEntry, now)) {
       return previousEntry.value;
     }
 
@@ -397,11 +378,7 @@ export default abstract class AbstractApiRepository<
       return;
     }
 
-    const cacheKey = this.buildNamedEntityCacheKey(
-      cacheName,
-      endpoint,
-      String(secureId).trim()
-    );
+    const cacheKey = this.buildNamedEntityCacheKey(cacheName, endpoint, String(secureId).trim());
     this.namedEntityCache.delete(cacheKey);
   }
 
@@ -431,11 +408,7 @@ export default abstract class AbstractApiRepository<
   }
 
   async postEntity(options: PostEntityOptions): Promise<T> {
-    const {
-      endpoint,
-      entity,
-      query = {},
-    } = options;
+    const { endpoint, entity, query = {} } = options;
     const payload = entity.toApiPayload();
 
     const data = await this.client
@@ -454,12 +427,7 @@ export default abstract class AbstractApiRepository<
   }
 
   async postEntityBySecureId(options: PostEntityBySecureIdOptions): Promise<T> {
-    const {
-      endpoint,
-      entity,
-      secureId,
-      query = {},
-    } = options;
+    const { endpoint, entity, secureId, query = {} } = options;
     const resolvedSecureId = secureId ?? entity.secureId;
 
     if (!resolvedSecureId) {
@@ -491,11 +459,7 @@ export default abstract class AbstractApiRepository<
   }
 
   async postEntities(options: PostEntitiesOptions): Promise<T[]> {
-    const {
-      endpoint,
-      entities,
-      query = {},
-    } = options;
+    const { endpoint, entities, query = {} } = options;
     const payloads = entities.map((entity) => entity.toApiPayload());
 
     const data = await this.client
@@ -523,16 +487,10 @@ export default abstract class AbstractApiRepository<
   }
 
   async deleteEntity(options: DeleteEntityOptions): Promise<unknown> {
-    const {
-      identifier,
-      endpoint = 'delete',
-      query = {},
-      payload = null,
-    } = options;
+    const { identifier, endpoint = 'delete', query = {}, payload = null } = options;
     const path = this.buildPath(`${endpoint}/${encodeURIComponent(String(identifier))}`);
-    const requestOptions = payload === null
-      ? { searchParams: query }
-      : { searchParams: query, json: payload };
+    const requestOptions =
+      payload === null ? { searchParams: query } : { searchParams: query, json: payload };
 
     return this.client
       .delete({
@@ -562,11 +520,7 @@ export default abstract class AbstractApiRepository<
     return entry.expiresAt === null || entry.expiresAt > now;
   }
 
-  private buildNamedEntityCacheKey(
-    cacheName: string,
-    endpoint: string,
-    secureId: string
-  ): string {
+  private buildNamedEntityCacheKey(cacheName: string, endpoint: string, secureId: string): string {
     return `${cacheName}::${endpoint}::${secureId}`;
   }
 
