@@ -100,10 +100,7 @@ const WithAsyncComponentLoadVueMixin = {
         try {
           return await this.duringAsyncLoad(async () => {
             const extraPromises = this.resolveAsyncComponentPromises();
-            await Promise.all([
-              this.asyncComponentLoad(),
-              ...extraPromises,
-            ]);
+            await Promise.all([this.asyncComponentLoad(), ...extraPromises]);
           });
         } finally {
           this.asyncComponentLoadPromise = null;

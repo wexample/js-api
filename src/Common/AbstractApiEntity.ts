@@ -48,6 +48,7 @@ export default abstract class AbstractApiEntity {
 
     // Allow dynamic getX()/getXSecureId() via Proxy, similar to PHP __call.
     if ((this.constructor as typeof AbstractApiEntity).useProxy) {
+      // biome-ignore lint/correctness/noConstructorReturn: returning a Proxy from the constructor is intentional
       return AbstractApiEntity.createProxy(this);
     }
   }

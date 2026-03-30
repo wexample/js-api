@@ -1,5 +1,5 @@
 import type AbstractApiEntity from './AbstractApiEntity.js';
-import ApiEntityStub from './ApiEntityStub.js';
+import type ApiEntityStub from './ApiEntityStub.js';
 
 type StubEntry = {
   owner: AbstractApiEntity;

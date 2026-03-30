@@ -13,10 +13,7 @@ export function normalizePropertyType(type: unknown): string {
   return lowered;
 }
 
-export function normalizeIncomingValue(
-  property: ApiEntitySchemaProperty,
-  value: unknown
-): unknown {
+export function normalizeIncomingValue(property: ApiEntitySchemaProperty, value: unknown): unknown {
   if (value === null || value === undefined) {
     return null;
   }
@@ -48,10 +45,7 @@ export function normalizeIncomingValue(
   }
 }
 
-export function serializeOutgoingValue(
-  property: ApiEntitySchemaProperty,
-  value: unknown
-): unknown {
+export function serializeOutgoingValue(property: ApiEntitySchemaProperty, value: unknown): unknown {
   if (value === undefined || value === null) {
     return null;
   }

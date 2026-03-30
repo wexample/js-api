@@ -1,5 +1,5 @@
-import type AbstractApiEntity from '../Common/AbstractApiEntity.js';
 import { stringToCamelCase, stringToKebab } from '@wexample/js-helpers/Helper/String';
+import type AbstractApiEntity from '../Common/AbstractApiEntity.js';
 import AbstractEntityManipulatorMixin from './AbstractEntityManipulatorMixin.js';
 import WithAsyncComponentLoadVueMixin from './WithAsyncComponentLoadVueMixin.js';
 
@@ -42,7 +42,7 @@ const AbstractEntitySingleMixin = {
       }
 
       await this.loadAsyncComponent(true);
-    }
+    },
   },
 
   methods: {
@@ -63,8 +63,8 @@ const AbstractEntitySingleMixin = {
       ];
 
       if (display) {
-        classes.push('entity--display--' + display)
-        classes.push('entity--' + entityType + '--display--' + display)
+        classes.push('entity--display--' + display);
+        classes.push('entity--' + entityType + '--display--' + display);
       }
 
       return classes;
@@ -81,7 +81,9 @@ const AbstractEntitySingleMixin = {
     validateEntitySource() {
       const hasEntityInstance = this.entityInstance !== null && this.entityInstance !== undefined;
       const hasEntitySecureId =
-        this.entitySecureId !== null && this.entitySecureId !== undefined && this.entitySecureId !== '';
+        this.entitySecureId !== null &&
+        this.entitySecureId !== undefined &&
+        this.entitySecureId !== '';
 
       if (hasEntityInstance === hasEntitySecureId) {
         throw new Error('Provide exactly one of entityInstance or entitySecureId.');
@@ -141,12 +143,20 @@ const AbstractEntitySingleMixin = {
     getCachedRelationship(name: string, entity?: AbstractApiEntity): AbstractApiEntity | null {
       const camelName = stringToCamelCase(name);
       const secureId = (entity ?? (this as any).entity).data[camelName];
-      return this.cachedRelationships[camelName]?.find((e: AbstractApiEntity) => e.secureId === secureId) ?? null;
+      return (
+        this.cachedRelationships[camelName]?.find(
+          (e: AbstractApiEntity) => e.secureId === secureId
+        ) ?? null
+      );
     },
 
     getCachedRelationshipsBySecureIds(name: string, secureIds: string[]): AbstractApiEntity[] {
       const camelName = stringToCamelCase(name);
-      return this.cachedRelationships[camelName]?.filter((e: AbstractApiEntity) => secureIds.includes(e.secureId)) ?? [];
+      return (
+        this.cachedRelationships[camelName]?.filter((e: AbstractApiEntity) =>
+          secureIds.includes(e.secureId)
+        ) ?? []
+      );
     },
 
     async asyncComponentLoad() {
