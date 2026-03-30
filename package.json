@@ -1,5 +1,5 @@
 {
-  "version": "0.0.36",
+  "version": "0.0.37",
   "type": "module",
   "name": "@wexample/js-api",
   "scripts": {
@@ -7,16 +7,13 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@wexample/js-helpers": "*",
     "typescript": "^5.9.3"
   },
   "publishConfig": {
     "access": "public"
   },
-  "peerDependencies": {
-    "@wexample/js-helpers": "*"
-  },
   "dependencies": {
+    "@wexample/js-helpers": "*",
     "ky": "^1.4.0"
   },
   "repository": "https://github.com/wexample/js-api",
