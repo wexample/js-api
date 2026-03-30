@@ -113,7 +113,7 @@ export default abstract class AbstractApiClient {
             });
           }
 
-          if (!await this.shouldCaptureError(httpError, mappedError)) {
+          if (!(await this.shouldCaptureError(httpError, mappedError))) {
             return mappedError as any;
           }
 

@@ -18,13 +18,8 @@ import {
   isPropertySerializable,
   isPropertyWritable,
 } from '../Helper/ApiEntitySchemaHelper.js';
-import {
-  normalizeIncomingValue,
-  serializeOutgoingValue,
-} from '../Helper/ApiEntityValueHelper.js';
-import {
-  lowerFirstCharacter,
-} from '../Helper/EntityNameHelper.js';
+import { normalizeIncomingValue, serializeOutgoingValue } from '../Helper/ApiEntityValueHelper.js';
+import { lowerFirstCharacter } from '../Helper/EntityNameHelper.js';
 
 export type ApiEntityConstructor<T extends AbstractApiEntity> = {
   new (data?: ApiEntityData): T;
@@ -104,11 +99,7 @@ export default abstract class AbstractApiEntity {
       ) {
         const targetName = (relationship as { targetName?: string }).targetName;
         const stubTargetName = (stub as { targetName?: string }).targetName;
-        if (
-          targetName &&
-          stubTargetName &&
-          targetName === stubTargetName
-        ) {
+        if (targetName && stubTargetName && targetName === stubTargetName) {
           return entity;
         }
       }
