@@ -2,17 +2,17 @@
 # yarn lockfile v1
 
 
-"@wexample/js-helpers@0.0.36":
-  "integrity" "sha512-SmwudEGCE6l3Zvy404/JVBvGOUYGF/zht42rsFMQAd14v9ylK0DhFbchjUbdH6v6wTB2WTwzZFRXG9/bgqLpdQ=="
-  "resolved" "https://registry.npmjs.org/@wexample/js-helpers/-/js-helpers-0.0.36.tgz"
-  "version" "0.0.36"
+"@wexample/js-helpers@0.0.37":
+  version "0.0.37"
+  resolved "https://registry.npmjs.org/@wexample/js-helpers/-/js-helpers-0.0.37.tgz"
+  integrity sha512-flNiy5uiMDcnmmTHdanIlIadTlReT1wEjYTBvm5AsTOl2HxtMccdVs1Ba/4FNRHMqeWDXzIKjsQTPUyQEgU8HQ==
 
-"ky@^1.4.0":
-  "integrity" "sha512-q3RBbsO5A5zrPhB6CaCS8ZUv+NWCXv6JJT4Em0i264G9W0fdPB8YRfnnEi7Dm7X7omAkBIPojzYJ2D1oHTHqug=="
-  "resolved" "https://registry.npmjs.org/ky/-/ky-1.14.2.tgz"
-  "version" "1.14.2"
+ky@^1.4.0:
+  version "1.14.2"
+  resolved "https://registry.npmjs.org/ky/-/ky-1.14.2.tgz"
+  integrity sha512-q3RBbsO5A5zrPhB6CaCS8ZUv+NWCXv6JJT4Em0i264G9W0fdPB8YRfnnEi7Dm7X7omAkBIPojzYJ2D1oHTHqug==
 
-"typescript@^5.9.3":
-  "integrity" "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="
-  "resolved" "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz"
-  "version" "5.9.3"
+typescript@^5.9.3:
+  version "5.9.3"
+  resolved "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz"
+  integrity sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==
