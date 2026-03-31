@@ -501,7 +501,7 @@ export default abstract class AbstractApiRepository<
   }
 
   protected getEntityRegistry(): ApiEntityRegistry {
-    const client = this.client as unknown as { getEntityRegistry?: () => ApiEntityRegistry };
+    const client = this.client as unknown as { getEntityRegistry: () => ApiEntityRegistry };
     return client.getEntityRegistry();
   }
 
