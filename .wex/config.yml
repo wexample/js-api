@@ -4,4 +4,8 @@ domains: []
 global:
   name: js_api
   type: app
-  version: 6.0.19
+  version: 0.0.39
+wex:
+  version: 6.0.89
+git:
+  publication_strategy: main_push
