@@ -5,6 +5,8 @@ export type LiveUpdatesDriverConnectOptions = {
   topics: string[];
 };
 
+// connect() may be async, e.g. when the driver has to fetch a fresh
+// subscriber token before opening the stream.
 export interface LiveUpdatesDriverInterface {
-  connect(options: LiveUpdatesDriverConnectOptions): EventSource;
+  connect(options: LiveUpdatesDriverConnectOptions): EventSource | Promise<EventSource>;
 }

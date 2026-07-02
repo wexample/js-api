@@ -65,14 +65,42 @@ export default class LiveUpdatesConnection {
   }
 
   private open(): void {
+    let result: EventSource | Promise<EventSource>;
+
     try {
-      this.source = this.driver.connect({ topics: [...this.topics] });
-      this.bindSource(this.source);
-    } catch (error) {
-      this.updateStatus('error');
-      this.scheduleReconnect();
-      throw error;
+      result = this.driver.connect({ topics: [...this.topics] });
+    } catch {
+      this.handleOpenFailure();
+      return;
     }
+
+    if (result instanceof Promise) {
+      result
+        .then((source) => {
+          if (this.currentStatus === 'closed') {
+            source.close();
+            return;
+          }
+          this.source = source;
+          this.bindSource(source);
+        })
+        .catch(() => {
+          this.handleOpenFailure();
+        });
+      return;
+    }
+
+    this.source = result;
+    this.bindSource(result);
+  }
+
+  private handleOpenFailure(): void {
+    if (this.currentStatus === 'closed') {
+      return;
+    }
+
+    this.updateStatus('error');
+    this.scheduleReconnect();
   }
 
   private bindSource(source: EventSource): void {
@@ -115,12 +143,7 @@ export default class LiveUpdatesConnection {
 
       this.closeSource();
       this.updateStatus('connecting');
-
-      try {
-        this.open();
-      } catch {
-        // open() already scheduled the next attempt.
-      }
+      this.open();
     });
   }
 

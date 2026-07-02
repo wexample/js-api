@@ -25,7 +25,9 @@ export default class MercureLiveUpdatesDriver implements LiveUpdatesDriverInterf
     const config = this.configResolver();
     const hubPath = config.hubPath ?? '/.well-known/mercure';
     const topicParamName = config.topicParamName ?? 'topic';
-    const jwtParamName = config.jwtParamName ?? 'jwt';
+    // Mercure hubs expect the subscriber JWT in the "authorization" query
+    // param (EventSource cannot set an Authorization header).
+    const jwtParamName = config.jwtParamName ?? 'authorization';
     const withCredentials = config.withCredentials ?? true;
 
     if (!config.hubUrl) {
