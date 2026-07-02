@@ -11,3 +11,5 @@ venv/
 .pdm-build
 /tmp
 /local/
+/.env
+/tmp/

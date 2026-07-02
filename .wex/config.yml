@@ -1,11 +1,13 @@
 docker:
   db: {}
 domains: []
+git:
+  main_deployment_remote_name: github
+  publication_strategy: main_push
 global:
   name: js_api
   type: app
-  version: 0.0.39
+  version: 0.0.40
 wex:
-  version: 6.0.89
-git:
-  publication_strategy: main_push
+  migration: 1
+  version: 6.0.112
