@@ -4,6 +4,7 @@ import AbstractApiEntity, {
   type ApiEntityConstructor,
   type ApiEntityData,
 } from './AbstractApiEntity.js';
+import { unwrapApiEnvelope } from './ApiEnvelope.js';
 import type ApiEntityRegistry from './ApiEntityRegistry.js';
 
 type RepositoryClass<T extends AbstractApiEntity> = {
@@ -187,12 +188,7 @@ export default abstract class AbstractApiRepository<
   }
 
   protected extractPayload(data: unknown): ApiEntityData {
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      throw new Error('Invalid API response: expected an object containing a "data" object.');
-    }
-
-    const record = data as Record<string, unknown>;
-    const payload = record.data;
+    const payload = unwrapApiEnvelope<unknown>(data);
 
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new Error('Invalid API response: missing or invalid "data" object.');
