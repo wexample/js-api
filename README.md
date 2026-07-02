@@ -1,6 +1,6 @@
 # @wexample/js-api
 
-Version: 0.0.40
+Version: 1.0.0
 
 ## Table of Contents
 

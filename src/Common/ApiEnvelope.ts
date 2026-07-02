@@ -3,9 +3,7 @@ import ApiEnvelopeError from './Errors/ApiEnvelopeError';
 export const API_RESPONSE_TYPE_SUCCESS = 'success';
 export const API_RESPONSE_TYPE_ERROR = 'error';
 
-export type ApiResponseType =
-  | typeof API_RESPONSE_TYPE_SUCCESS
-  | typeof API_RESPONSE_TYPE_ERROR;
+export type ApiResponseType = typeof API_RESPONSE_TYPE_SUCCESS | typeof API_RESPONSE_TYPE_ERROR;
 
 // Standard envelope produced by wexample/symfony-api controllers
 // (AbstractApiController::apiResponse).
