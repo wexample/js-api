@@ -6,6 +6,8 @@ import AbstractApiEntity, {
 } from './AbstractApiEntity.js';
 import { unwrapApiEnvelope } from './ApiEnvelope.js';
 import type ApiEntityRegistry from './ApiEntityRegistry.js';
+import ApiEnvelopeError from './Errors/ApiEnvelopeError.js';
+import ApiSchemaError from './Errors/ApiSchemaError.js';
 
 type RepositoryClass<T extends AbstractApiEntity> = {
   getEntityType(): ApiEntityConstructor<T>;
@@ -163,17 +165,36 @@ export default abstract class AbstractApiRepository<
 
   protected assertApiItemType(item: ApiItem, entityType: ApiEntityConstructor<T>): void {
     if (item.type !== entityType.entityName) {
-      throw new Error(
-        `API item type mismatch: expected "${entityType.entityName}", got "${item.type}".`
-      );
+      throw new ApiSchemaError({
+        message: `[js-api] API item type mismatch: expected "${entityType.entityName}", got "${item.type}".`,
+        code: ApiSchemaError.CODE_INVALID_ITEM,
+        entityName: entityType.entityName,
+      });
     }
   }
 
   protected createRelationships(relationships: ApiItemRelationships): AbstractApiEntity[] {
     const output: AbstractApiEntity[] = [];
+    const ownerEntityName = this.getEntityType().entityName;
 
-    for (const [, relEntry] of Object.entries(relationships)) {
-      const repository = this.client.getRepository(relEntry.type) as AbstractApiRepository;
+    for (const [relationName, relEntry] of Object.entries(relationships)) {
+      let repository: AbstractApiRepository;
+
+      try {
+        repository = this.client.getRepository(relEntry.type) as AbstractApiRepository;
+      } catch (error) {
+        // Re-throw with the owning entity and relation named: a bare
+        // "entity X is not registered" is undebuggable from a response.
+        throw new ApiSchemaError({
+          message:
+            `[js-api] cannot hydrate relationship "${relationName}" of entity "${ownerEntityName}": ` +
+            `no repository registered for type "${relEntry.type}".`,
+          code: ApiSchemaError.CODE_UNKNOWN_RELATIONSHIP,
+          entityName: ownerEntityName,
+          field: relationName,
+          cause: error,
+        });
+      }
 
       output.push(repository.createFromApiItem(relEntry));
     }
@@ -191,7 +212,10 @@ export default abstract class AbstractApiRepository<
     const payload = unwrapApiEnvelope<unknown>(data);
 
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new Error('Invalid API response: missing or invalid "data" object.');
+      throw new ApiEnvelopeError({
+        message: 'Invalid API response: missing or invalid "data" object.',
+        envelope: data,
+      });
     }
 
     return payload as ApiEntityData;
@@ -201,7 +225,10 @@ export default abstract class AbstractApiRepository<
     const items = (payload as Record<string, unknown>).items;
 
     if (!Array.isArray(items)) {
-      throw new Error('Invalid API payload: missing "items" array.');
+      throw new ApiEnvelopeError({
+        message: 'Invalid API payload: missing "items" array.',
+        envelope: payload,
+      });
     }
 
     return items.map((item) => this.parseApiItem(item));
@@ -549,7 +576,52 @@ export default abstract class AbstractApiRepository<
     return undefined;
   }
 
-  private parseApiItem(value: unknown): ApiItem {
-    return value as ApiItem;
+  // Validates the {type, entity, metadata, relationships} shape instead of
+  // trusting the response blindly; metadata/relationships may be absent
+  // (decorations), type and entity may not.
+  protected parseApiItem(value: unknown): ApiItem {
+    const entityName = this.getEntityType().entityName;
+
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new ApiSchemaError({
+        message: `[js-api] invalid API item for entity "${entityName}": expected a {type, entity} object.`,
+        code: ApiSchemaError.CODE_INVALID_ITEM,
+        entityName,
+      });
+    }
+
+    const record = value as Record<string, unknown>;
+
+    if (typeof record.type !== 'string' || !record.type) {
+      throw new ApiSchemaError({
+        message: `[js-api] invalid API item for entity "${entityName}": missing "type".`,
+        code: ApiSchemaError.CODE_INVALID_ITEM,
+        entityName,
+      });
+    }
+
+    if (!record.entity || typeof record.entity !== 'object' || Array.isArray(record.entity)) {
+      throw new ApiSchemaError({
+        message: `[js-api] invalid API item for entity "${entityName}": missing "entity" object.`,
+        code: ApiSchemaError.CODE_INVALID_ITEM,
+        entityName,
+      });
+    }
+
+    const relationships =
+      record.relationships &&
+      typeof record.relationships === 'object' &&
+      !Array.isArray(record.relationships)
+        ? (record.relationships as ApiItemRelationships)
+        : {};
+
+    return {
+      type: record.type,
+      entity: record.entity as ApiEntityData,
+      metadata: (record.metadata && typeof record.metadata === 'object'
+        ? record.metadata
+        : []) as ApiItemMetadata,
+      relationships,
+    };
   }
 }

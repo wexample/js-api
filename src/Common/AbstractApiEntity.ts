@@ -14,19 +14,35 @@ export type ApiEntitySchema = {
 };
 
 import {
+  getPropertyApiField,
+  getSchemaPropertyByApiField,
   getSchemaPropertyByName,
   isPropertySerializable,
   isPropertyWritable,
 } from '../Helper/ApiEntitySchemaHelper.js';
 import { normalizeIncomingValue, serializeOutgoingValue } from '../Helper/ApiEntityValueHelper.js';
 import { lowerFirstCharacter } from '../Helper/EntityNameHelper.js';
+import ApiSchemaError from './Errors/ApiSchemaError.js';
+
+export type ApiEntitySetOptions = {
+  // Privileged write used by API hydration: bypasses the read-only guard,
+  // never the schema itself (an unknown property always throws).
+  system?: boolean;
+};
+
+export type ApiEntityAssignOptions = {
+  // Skip response keys absent from the schema instead of throwing.
+  // Reserved for payloads outside the standard contract (e.g. legacy
+  // normalizers); hydration is strict by default.
+  tolerant?: boolean;
+};
 
 export type ApiEntityConstructor<T extends AbstractApiEntity> = {
   new (data?: ApiEntityData): T;
   readonly entityName: string;
   retrieveEntitySchema(): ApiEntitySchema;
-  fromApi(data: ApiEntityData): T;
-  fromApiCollection(collection: ApiEntityData[]): T[];
+  fromApi(data: ApiEntityData, options?: ApiEntityAssignOptions): T;
+  fromApiCollection(collection: ApiEntityData[], options?: ApiEntityAssignOptions): T[];
 };
 
 export default abstract class AbstractApiEntity {
@@ -55,20 +71,22 @@ export default abstract class AbstractApiEntity {
 
   static fromApi<T extends AbstractApiEntity>(
     this: ApiEntityConstructor<T>,
-    data: ApiEntityData
+    data: ApiEntityData,
+    options: ApiEntityAssignOptions = {}
   ): T {
     // biome-ignore lint: keep subclass instantiation with `this`.
     const entity = new this();
-    entity.assignFromApi(data);
+    entity.assignFromApi(data, options);
     return entity;
   }
 
   static fromApiCollection<T extends AbstractApiEntity>(
     this: ApiEntityConstructor<T>,
-    collection: ApiEntityData[]
+    collection: ApiEntityData[],
+    options: ApiEntityAssignOptions = {}
   ): T[] {
     // biome-ignore lint: keep subclass behavior via `this`.
-    return collection.map((item) => this.fromApi(item));
+    return collection.map((item) => this.fromApi(item, options));
   }
 
   static retrieveEntitySchema(): ApiEntitySchema {
@@ -174,26 +192,50 @@ export default abstract class AbstractApiEntity {
     return this.data;
   }
 
-  assignFromApi(data: ApiEntityData): void {
+  // Hydrates from an API payload through the same gate as set(): every
+  // response key must match a schema property (by its wire name) — an
+  // unknown key means the API contract drifted and throws.
+  assignFromApi(data: ApiEntityData, options: ApiEntityAssignOptions = {}): void {
     const schemaProperties = this.getSchemaProperties();
-    for (const property of schemaProperties) {
-      const apiField = property.apiField && property.apiField ? property.apiField : property.name;
-      if (!(apiField in data)) {
-        continue;
+
+    for (const [apiField, value] of Object.entries(data)) {
+      const property = getSchemaPropertyByApiField(schemaProperties, apiField);
+
+      if (!property) {
+        if (options.tolerant) {
+          continue;
+        }
+
+        throw new ApiSchemaError({
+          message: `[js-api] field not allowed by schema (${this.entityName}): ${apiField}`,
+          code: ApiSchemaError.CODE_UNKNOWN_FIELD,
+          entityName: this.entityName,
+          field: apiField,
+        });
       }
 
-      this.setDataValue(property.name, normalizeIncomingValue(property, data[apiField]));
+      this.set(property.name, value, { system: true });
     }
   }
 
-  set(name: string, value: unknown): void {
+  set(name: string, value: unknown, options: ApiEntitySetOptions = {}): void {
     const property = getSchemaPropertyByName(this.getSchemaProperties(), name);
     if (!property) {
-      throw new Error(`[js-api] unknown property "${name}" on entity "${this.entityName}".`);
+      throw new ApiSchemaError({
+        message: `[js-api] unknown property "${name}" on entity "${this.entityName}".`,
+        code: ApiSchemaError.CODE_UNKNOWN_FIELD,
+        entityName: this.entityName,
+        field: name,
+      });
     }
 
-    if (!isPropertyWritable(property)) {
-      throw new Error(`[js-api] property "${name}" is read-only on entity "${this.entityName}".`);
+    if (!options.system && !isPropertyWritable(property)) {
+      throw new ApiSchemaError({
+        message: `[js-api] property "${name}" is read-only on entity "${this.entityName}".`,
+        code: ApiSchemaError.CODE_READ_ONLY_FIELD,
+        entityName: this.entityName,
+        field: name,
+      });
     }
 
     this.setDataValue(name, normalizeIncomingValue(property, value));
@@ -217,8 +259,10 @@ export default abstract class AbstractApiEntity {
         continue;
       }
 
-      const apiField = property.apiField && property.apiField ? property.apiField : property.name;
-      output[apiField] = serializeOutgoingValue(property, this.data[property.name]);
+      output[getPropertyApiField(property)] = serializeOutgoingValue(
+        property,
+        this.data[property.name]
+      );
     }
 
     return output;
