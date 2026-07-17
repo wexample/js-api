@@ -30,19 +30,12 @@ export type ApiEntitySetOptions = {
   system?: boolean;
 };
 
-export type ApiEntityAssignOptions = {
-  // Skip response keys absent from the schema instead of throwing.
-  // Reserved for payloads outside the standard contract (e.g. legacy
-  // normalizers); hydration is strict by default.
-  tolerant?: boolean;
-};
-
 export type ApiEntityConstructor<T extends AbstractApiEntity> = {
   new (data?: ApiEntityData): T;
   readonly entityName: string;
   retrieveEntitySchema(): ApiEntitySchema;
-  fromApi(data: ApiEntityData, options?: ApiEntityAssignOptions): T;
-  fromApiCollection(collection: ApiEntityData[], options?: ApiEntityAssignOptions): T[];
+  fromApi(data: ApiEntityData): T;
+  fromApiCollection(collection: ApiEntityData[]): T[];
 };
 
 export default abstract class AbstractApiEntity {
@@ -69,24 +62,19 @@ export default abstract class AbstractApiEntity {
     }
   }
 
-  static fromApi<T extends AbstractApiEntity>(
-    this: ApiEntityConstructor<T>,
-    data: ApiEntityData,
-    options: ApiEntityAssignOptions = {}
-  ): T {
+  static fromApi<T extends AbstractApiEntity>(this: ApiEntityConstructor<T>, data: ApiEntityData): T {
     // biome-ignore lint: keep subclass instantiation with `this`.
     const entity = new this();
-    entity.assignFromApi(data, options);
+    entity.assignFromApi(data);
     return entity;
   }
 
   static fromApiCollection<T extends AbstractApiEntity>(
     this: ApiEntityConstructor<T>,
-    collection: ApiEntityData[],
-    options: ApiEntityAssignOptions = {}
+    collection: ApiEntityData[]
   ): T[] {
     // biome-ignore lint: keep subclass behavior via `this`.
-    return collection.map((item) => this.fromApi(item, options));
+    return collection.map((item) => this.fromApi(item));
   }
 
   static retrieveEntitySchema(): ApiEntitySchema {
@@ -195,17 +183,13 @@ export default abstract class AbstractApiEntity {
   // Hydrates from an API payload through the same gate as set(): every
   // response key must match a schema property (by its wire name) — an
   // unknown key means the API contract drifted and throws.
-  assignFromApi(data: ApiEntityData, options: ApiEntityAssignOptions = {}): void {
+  assignFromApi(data: ApiEntityData): void {
     const schemaProperties = this.getSchemaProperties();
 
     for (const [apiField, value] of Object.entries(data)) {
       const property = getSchemaPropertyByApiField(schemaProperties, apiField);
 
       if (!property) {
-        if (options.tolerant) {
-          continue;
-        }
-
         throw new ApiSchemaError({
           message: `[js-api] field not allowed by schema (${this.entityName}): ${apiField}`,
           code: ApiSchemaError.CODE_UNKNOWN_FIELD,

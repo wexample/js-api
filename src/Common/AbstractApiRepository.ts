@@ -157,6 +157,12 @@ export default abstract class AbstractApiRepository<
     return entity;
   }
 
+  // Public hydration gate for a single raw API item (REST payload, live
+  // update): validates the {type, entity} shape then hydrates strictly.
+  public hydrateApiItem(value: unknown): T {
+    return this.createFromApiItem(this.parseApiItem(value));
+  }
+
   protected createFromApiCollection(collection: ApiItem[]): T[] {
     return collection.map((item) => {
       return this.createFromApiItem(item);
