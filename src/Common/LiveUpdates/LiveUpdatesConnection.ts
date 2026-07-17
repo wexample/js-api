@@ -2,7 +2,16 @@ import RetryBackoffScheduler from '@wexample/js-helpers/Common/RetryBackoffSched
 import { type ReconnectBackoffOptions } from '@wexample/js-helpers/Helper/Reconnect';
 import type { LiveUpdatesDriverInterface } from './LiveUpdatesDriver';
 
-export type LiveUpdatesConnectionStatus = 'connecting' | 'open' | 'error' | 'closed';
+// 'connecting' is the initial attempt; 'reconnecting' any retry after a
+// failure; 'reconnect-stopped' a terminal give-up (backoff exhausted) —
+// a reconnection success is observable as 'reconnecting' → 'open'.
+export type LiveUpdatesConnectionStatus =
+  | 'connecting'
+  | 'open'
+  | 'error'
+  | 'reconnecting'
+  | 'reconnect-stopped'
+  | 'closed';
 
 export type LiveUpdatesConnectionOptions = {
   driver: LiveUpdatesDriverInterface;
@@ -13,6 +22,17 @@ export type LiveUpdatesConnectionOptions = {
     previousStatus: LiveUpdatesConnectionStatus
   ) => void;
   reconnect?: ReconnectBackoffOptions;
+};
+
+// Passive observer of a connection (status registry, monitoring): observers
+// are notified after the owner callbacks and cannot replace them.
+export type LiveUpdatesConnectionObserver = {
+  onStatusChange?: (
+    status: LiveUpdatesConnectionStatus,
+    previousStatus: LiveUpdatesConnectionStatus,
+    connection: LiveUpdatesConnection
+  ) => void;
+  onMessage?: (payload: unknown, connection: LiveUpdatesConnection) => void;
 };
 
 const DEFAULT_RECONNECT_OPTIONS: ReconnectBackoffOptions = {
@@ -35,6 +55,7 @@ export default class LiveUpdatesConnection {
     previousStatus: LiveUpdatesConnectionStatus
   ) => void;
   private readonly reconnectScheduler: RetryBackoffScheduler;
+  private readonly observers = new Set<LiveUpdatesConnectionObserver>();
   private source: EventSource | null = null;
   private currentStatus: LiveUpdatesConnectionStatus = 'connecting';
 
@@ -56,6 +77,14 @@ export default class LiveUpdatesConnection {
 
   getTopics(): string[] {
     return [...this.topics];
+  }
+
+  // Registers a passive observer; returns its unsubscribe function.
+  observe(observer: LiveUpdatesConnectionObserver): () => void {
+    this.observers.add(observer);
+    return () => {
+      this.observers.delete(observer);
+    };
   }
 
   close(): void {
@@ -115,7 +144,11 @@ export default class LiveUpdatesConnection {
     };
 
     source.onmessage = (event: MessageEvent) => {
-      this.onMessage?.(this.parseMessageData(event.data), event);
+      const payload = this.parseMessageData(event.data);
+      this.onMessage?.(payload, event);
+      for (const observer of this.observers) {
+        observer.onMessage?.(payload, this);
+      }
     };
   }
 
@@ -132,7 +165,12 @@ export default class LiveUpdatesConnection {
   }
 
   private scheduleReconnect(): void {
-    if (this.currentStatus === 'closed' || !this.reconnectScheduler.canRetry()) {
+    if (this.currentStatus === 'closed') {
+      return;
+    }
+
+    if (!this.reconnectScheduler.canRetry()) {
+      this.updateStatus('reconnect-stopped');
       return;
     }
 
@@ -142,7 +180,7 @@ export default class LiveUpdatesConnection {
       }
 
       this.closeSource();
-      this.updateStatus('connecting');
+      this.updateStatus('reconnecting');
       this.open();
     });
   }
@@ -167,5 +205,8 @@ export default class LiveUpdatesConnection {
     const previousStatus = this.currentStatus;
     this.currentStatus = nextStatus;
     this.onStatusChange?.(nextStatus, previousStatus);
+    for (const observer of this.observers) {
+      observer.onStatusChange?.(nextStatus, previousStatus, this);
+    }
   }
 }
