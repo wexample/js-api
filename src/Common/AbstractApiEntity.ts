@@ -62,7 +62,10 @@ export default abstract class AbstractApiEntity {
     }
   }
 
-  static fromApi<T extends AbstractApiEntity>(this: ApiEntityConstructor<T>, data: ApiEntityData): T {
+  static fromApi<T extends AbstractApiEntity>(
+    this: ApiEntityConstructor<T>,
+    data: ApiEntityData
+  ): T {
     // biome-ignore lint: keep subclass instantiation with `this`.
     const entity = new this();
     entity.assignFromApi(data);
