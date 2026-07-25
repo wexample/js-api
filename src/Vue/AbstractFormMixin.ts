@@ -1,3 +1,5 @@
+import { VueFormController } from './VueFormController';
+
 type SetFormErrorsOptions = {
   formErrors?: string[];
   fieldErrors?: Record<string, string[]>;
@@ -49,8 +51,15 @@ type ApiErrorWithJsonResponse = {
 };
 
 const AbstractFormMixin = {
+  provide() {
+    return {
+      formController: (this as any).formController,
+    };
+  },
+
   data() {
     return {
+      formController: new VueFormController(),
       formIsSubmitting: false,
       formErrors: [],
       fieldErrors: {},
@@ -60,7 +69,7 @@ const AbstractFormMixin = {
 
   methods: {
     getSubmitEndpoint(): string | null {
-      return this.submitEndpoint;
+      return (this as any).submitEndpoint;
     },
 
     getSubmitMethod(): string {
@@ -73,69 +82,92 @@ const AbstractFormMixin = {
 
     async requestApiSubmit(options: ApiSubmitRequestOptions) {
       const { endpoint, method = 'POST', payload = {} } = options;
-      const apiClient = this.app.getClient() as ApiClientLike;
       const resolvedMethod = String(method || 'POST').toUpperCase();
-      const requestContext = {
-        onError: async (context: { error: unknown }) =>
-          this.shouldCaptureApiSubmitError(context.error),
+
+      let apiClient: ApiClientLike | null = null;
+      try {
+        const apiService = (this as any).app.getService('api') as any;
+        if (typeof apiService.getClient === 'function') {
+          apiClient = apiService.getClient() as ApiClientLike;
+        }
+      } catch {
+        // API service not registered or client not configured — fall back to native fetch
+      }
+
+      if (apiClient) {
+        const requestContext = {
+          onError: async (context: { error: unknown }) =>
+            (this as any).shouldCaptureApiSubmitError(context.error),
+        };
+
+        if (resolvedMethod === 'GET') {
+          return apiClient
+            .get({ path: endpoint, options: { context: requestContext } })
+            .json<unknown>();
+        }
+
+        if (resolvedMethod === 'DELETE') {
+          return apiClient
+            .delete({
+              path: endpoint,
+              options:
+                payload == null
+                  ? { context: requestContext }
+                  : { json: payload, context: requestContext },
+            })
+            .json<unknown>();
+        }
+
+        return apiClient
+          .post({ path: endpoint, options: { json: payload ?? {}, context: requestContext } })
+          .json<unknown>();
+      }
+
+      // Native fetch fallback when no API client is configured.
+      const fetchInit: RequestInit = {
+        method: resolvedMethod,
+        headers: { 'Content-Type': 'application/json' },
       };
-
-      if (resolvedMethod === 'GET') {
-        return apiClient
-          .get({
-            path: endpoint,
-            options: {
-              context: requestContext,
-            },
-          })
-          .json<unknown>();
+      if (resolvedMethod !== 'GET' && payload != null) {
+        fetchInit.body = JSON.stringify(payload);
       }
+      const response = await fetch(endpoint, fetchInit);
+      return response.json();
+    },
 
-      if (resolvedMethod === 'DELETE') {
-        return apiClient
-          .delete({
-            path: endpoint,
-            options:
-              payload == null
-                ? { context: requestContext }
-                : { json: payload, context: requestContext },
-          })
-          .json<unknown>();
-      }
-
-      return apiClient
-        .post({
-          path: endpoint,
-          options: {
-            json: payload ?? {},
-            context: requestContext,
-          },
-        })
-        .json<unknown>();
+    onBeforeSubmit(): boolean {
+      // Hook: return false to cancel submission.
+      return true;
     },
 
     async onSubmit() {
-      const endpoint = this.getSubmitEndpoint();
+      const endpoint = (this as any).getSubmitEndpoint();
       if (!endpoint) {
         throw new Error(
           'Missing submit endpoint. Override getSubmitEndpoint() or set submitEndpoint.'
         );
       }
 
-      return this.submitFormAction({
+      if (!(this as any).onBeforeSubmit()) {
+        return;
+      }
+
+      return (this as any).submitFormAction({
         asyncAction: async () => {
           try {
-            const response = await this.requestApiSubmit({
+            const response = await (this as any).requestApiSubmit({
               endpoint,
-              method: this.getSubmitMethod(),
-              payload: this.buildSubmitPayload(),
+              method: (this as any).getSubmitMethod(),
+              payload: (this as any).buildSubmitPayload(),
             });
 
-            this.handleApiValidationResponse(response);
+            if (!(this as any).handleApiValidationResponse(response)) {
+              (this as any).onApiSubmitSuccess(response);
+            }
             return response;
           } catch (error) {
-            const errorResponse = await this.extractApiErrorResponse(error);
-            if (errorResponse && this.handleApiValidationResponse(errorResponse)) {
+            const errorResponse = await (this as any).extractApiErrorResponse(error);
+            if (errorResponse && (this as any).handleApiValidationResponse(errorResponse)) {
               return errorResponse;
             }
 
@@ -146,24 +178,24 @@ const AbstractFormMixin = {
     },
 
     clearFormErrors() {
-      this.formErrors = [];
-      this.fieldErrors = {};
+      (this as any).formErrors = [];
+      (this as any).fieldErrors = {};
     },
 
     setFormErrors(options: SetFormErrorsOptions = {}) {
       const { formErrors = [], fieldErrors = {} } = options;
 
-      this.formErrors = Array.isArray(formErrors) ? formErrors : [];
-      this.fieldErrors = fieldErrors && typeof fieldErrors === 'object' ? fieldErrors : {};
+      (this as any).formErrors = Array.isArray(formErrors) ? formErrors : [];
+      (this as any).fieldErrors = fieldErrors && typeof fieldErrors === 'object' ? fieldErrors : {};
     },
 
     getFieldErrors(fieldPath: string): string[] {
-      return this.fieldErrors[fieldPath] || [];
+      return (this as any).fieldErrors[fieldPath] || [];
     },
 
     applyApiValidationSummary(summary?: ApiValidationSummary): void {
       const safeSummary = summary && typeof summary === 'object' ? summary : {};
-      this.setFormErrors({
+      (this as any).setFormErrors({
         formErrors: Array.isArray(safeSummary.global) ? safeSummary.global : [],
         fieldErrors:
           safeSummary.fields && typeof safeSummary.fields === 'object' ? safeSummary.fields : {},
@@ -177,7 +209,7 @@ const AbstractFormMixin = {
           : {};
       const summary = safeResponse?.data?.summary;
 
-      this.applyApiValidationSummary(summary);
+      (this as any).applyApiValidationSummary(summary);
     },
 
     async extractApiErrorResponse(error: unknown): Promise<unknown | null> {
@@ -210,42 +242,49 @@ const AbstractFormMixin = {
     },
 
     async shouldCaptureApiSubmitError(error: unknown): Promise<boolean> {
-      const errorResponse = await this.extractApiErrorResponse(error);
+      const errorResponse = await (this as any).extractApiErrorResponse(error);
 
       if (!errorResponse) {
         return true;
       }
 
-      return !this.responseHasValidationError(errorResponse);
+      return !(this as any).responseHasValidationError(errorResponse);
     },
 
     handleApiValidationResponse(response: unknown): boolean {
-      if (!this.responseHasValidationError(response)) {
-        this.clearFormErrors();
+      if (!(this as any).responseHasValidationError(response)) {
+        (this as any).clearFormErrors();
         return false;
       }
 
-      this.applyApiValidationFromResponse(response);
+      (this as any).applyApiValidationFromResponse(response);
       return true;
     },
 
     async submitFormAction(options: SubmitFormActionOptions) {
       const { asyncAction } = options;
+      const controller: VueFormController = (this as any).formController;
 
-      this.formIsSubmitting = true;
-      this.clearFormErrors();
+      (this as any).formIsSubmitting = true;
+      controller.beginSubmit();
+      (this as any).clearFormErrors();
 
       try {
         return await asyncAction();
       } catch (error) {
-        this.handleSubmitError(error);
+        (this as any).handleSubmitError(error);
         throw error;
       } finally {
-        this.formIsSubmitting = false;
+        (this as any).formIsSubmitting = false;
+        controller.endSubmit();
       }
     },
 
     handleSubmitError(_error: unknown): void {
+      // Hook for child mixins/components.
+    },
+
+    onApiSubmitSuccess(_response: unknown): void {
       // Hook for child mixins/components.
     },
   },
