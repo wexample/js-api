@@ -18,7 +18,8 @@
   },
   "repository": "https://github.com/wexample/js-api",
   "files": [
-    "src"
+    "src",
+    "bin"
   ],
   "sideEffects": false,
   "exports": {
