@@ -2,6 +2,7 @@ import type { FormControllerInterface } from './FormControllerInterface';
 import type { FieldControllerInterface } from './FieldControllerInterface';
 
 export class VueFormController implements FormControllerInterface {
+  isSubmitting = false;
   private readonly fields = new Map<string, FieldControllerInterface>();
 
   registerField(field: FieldControllerInterface): void {
@@ -17,10 +18,12 @@ export class VueFormController implements FormControllerInterface {
   }
 
   beginSubmit(): void {
+    this.isSubmitting = true;
     this.fields.forEach(field => field.disable());
   }
 
   endSubmit(): void {
+    this.isSubmitting = false;
     this.fields.forEach(field => field.enable());
   }
 }
