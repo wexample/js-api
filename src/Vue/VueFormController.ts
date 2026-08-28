@@ -19,11 +19,11 @@ export class VueFormController implements FormControllerInterface {
 
   beginSubmit(): void {
     this.isSubmitting = true;
-    this.fields.forEach(field => field.disable());
+    this.fields.forEach((field) => field.disable());
   }
 
   endSubmit(): void {
     this.isSubmitting = false;
-    this.fields.forEach(field => field.enable());
+    this.fields.forEach((field) => field.enable());
   }
 }

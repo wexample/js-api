@@ -31,11 +31,20 @@ const files = fs.readdirSync(dataDir).filter((f) => f.endsWith('.json')).sort();
 
 let created = 0;
 let skipped = 0;
+const packageEntries = [];
 
 for (const fileName of files) {
   const entityName = path.basename(fileName, '.json');
   const className = toPascalCase(entityName);
   if (!className) { skipped++; continue; }
+
+  const entityData = JSON.parse(fs.readFileSync(path.join(dataDir, fileName), 'utf8'));
+  if (entityData.package) {
+    packageEntries.push({ className, packageName: entityData.package });
+    skipped++;
+    console.log(`Skipped ${className}Repository (provided by package: ${entityData.package})`);
+    continue;
+  }
 
   const targetPath = path.join(repositoryDir, `${className}Repository.ts`);
   if (fs.existsSync(targetPath)) { skipped++; continue; }
@@ -46,21 +55,35 @@ for (const fileName of files) {
   console.log(`Created ${targetPath}`);
 }
 
-const repositoryClasses = fs.readdirSync(repositoryDir)
+const packageClassNames = new Set(packageEntries.map(({ className }) => `${className}Repository`));
+const localRepositoryClasses = fs.readdirSync(repositoryDir)
   .filter((f) => f.endsWith('Repository.ts'))
-  .map((f) => f.replace(/\.ts$/, ''));
+  .map((f) => f.replace(/\.ts$/, ''))
+  .filter((c) => !packageClassNames.has(c));
 
 const manifestPath = path.join(commonDir, 'generatedRepositories.ts');
-fs.writeFileSync(manifestPath, buildManifest(repositoryClasses), 'utf8');
+fs.writeFileSync(manifestPath, buildManifest(localRepositoryClasses, packageEntries), 'utf8');
 console.log(`Updated ${manifestPath}`);
 console.log(`Done: created=${created}, skipped=${skipped}`);
 
-function buildManifest(classes) {
-  const sorted = [...new Set(classes)].sort();
-  const imports = sorted
+function buildManifest(localClasses, packageEntries) {
+  const sortedLocal = [...new Set(localClasses)].sort();
+  const sortedPackage = [...packageEntries].sort((a, b) => a.className.localeCompare(b.className));
+
+  const localImports = sortedLocal
     .map((c) => `import ${c} from '../Repository/${c}.js';`)
     .join('\n');
-  return `${imports}\n\nconst generatedRepositories = [${sorted.join(', ')}];\n\nexport default generatedRepositories;\n`;
+  const packageImports = sortedPackage
+    .map(({ className, packageName }) => `import ${className}Repository from '${packageName}/Repository/${className}Repository';`)
+    .join('\n');
+
+  const imports = [localImports, packageImports].filter(Boolean).join('\n');
+  const allNames = [
+    ...sortedLocal,
+    ...sortedPackage.map(({ className }) => `${className}Repository`),
+  ].sort();
+
+  return `${imports}\n\nconst generatedRepositories = [${allNames.join(', ')}];\n\nexport default generatedRepositories;\n`;
 }
 
 function toPascalCase(value) {

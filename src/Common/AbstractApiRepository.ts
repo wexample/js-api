@@ -28,6 +28,21 @@ type FetchListOptions = {
   length?: number | null;
   endpoint?: string;
 };
+
+// Mirrors Wexample\SymfonyApi\Api\Dto\PaginationDto. Pages are zero indexed.
+// A null length means "no limit"; a null total means the API did not count,
+// which leaves the pager with prev/next only.
+export type ApiPagination = {
+  page: number;
+  length: number | null;
+  total: number | null;
+  pagesCount: number | null;
+  hasMore: boolean | null;
+};
+export type ApiPaginatedList<T> = {
+  items: T[];
+  pagination: ApiPagination;
+};
 type FetchOptions = {
   identifier: string;
   endpoint?: string;
@@ -240,7 +255,44 @@ export default abstract class AbstractApiRepository<
     return items.map((item) => this.parseApiItem(item));
   }
 
-  async fetchList(options: FetchListOptions = {}): Promise<T[]> {
+  // An endpoint that returns no pagination block is treated as a single full
+  // page, so callers can rely on the meta being present either way.
+  protected extractPagination(payload: ApiEntityData, itemsCount: number): ApiPagination {
+    const raw = (payload as Record<string, unknown>).pagination;
+
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return {
+        page: 0,
+        length: null,
+        total: itemsCount,
+        pagesCount: 1,
+        hasMore: false,
+      };
+    }
+
+    const record = raw as Record<string, unknown>;
+    const toNumber = (value: unknown): number | null => {
+      const parsed = Number(value);
+      return value === null || value === undefined || Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const page = toNumber(record.page) ?? 0;
+    const length = toNumber(record.length);
+    const total = toNumber(record.total);
+    const pagesCount =
+      toNumber(record.pagesCount) ??
+      (total !== null ? (length ? Math.ceil(total / length) : 1) : null);
+    const hasMore =
+      typeof record.hasMore === 'boolean'
+        ? record.hasMore
+        : total !== null && length
+          ? page * length + length < total
+          : null;
+
+    return { page, length, total, pagesCount, hasMore };
+  }
+
+  async fetchListPaginated(options: FetchListOptions = {}): Promise<ApiPaginatedList<T>> {
     const { query = {}, page = null, length = null, endpoint = 'list' } = options;
     const searchParams: ApiQuery = { ...query };
 
@@ -259,7 +311,14 @@ export default abstract class AbstractApiRepository<
     const payload = this.extractPayload(data);
     const items = this.extractItems(payload);
 
-    return this.createFromApiCollection(items);
+    return {
+      items: this.createFromApiCollection(items),
+      pagination: this.extractPagination(payload, items.length),
+    };
+  }
+
+  async fetchList(options: FetchListOptions = {}): Promise<T[]> {
+    return (await this.fetchListPaginated(options)).items;
   }
 
   async fetchListCachedByName(options: FetchListCachedByNameOptions<T>): Promise<T[]> {

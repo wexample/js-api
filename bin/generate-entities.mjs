@@ -37,6 +37,13 @@ for (const fileName of files) {
   const className = toPascalCase(entityName);
   if (!className) { skipped++; continue; }
 
+  const entityData = JSON.parse(fs.readFileSync(path.join(dataDir, fileName), 'utf8'));
+  if (entityData.package) {
+    skipped++;
+    console.log(`Skipped ${className} (provided by package: ${entityData.package})`);
+    continue;
+  }
+
   const targetPath = path.join(entityDir, `${className}.ts`);
   if (fs.existsSync(targetPath)) { skipped++; continue; }
 
