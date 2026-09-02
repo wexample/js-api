@@ -11,8 +11,8 @@ export default class ApiEntityRegistry {
   private stubs: Map<string, Map<string, StubEntry[]>> = new Map();
 
   registerEntity(entity: AbstractApiEntity): void {
-    const secureId = entity.secureId;
-    if (!secureId) {
+    const id = entity.id;
+    if (!id) {
       return;
     }
 
@@ -25,9 +25,9 @@ export default class ApiEntityRegistry {
       this.entities.set(entityName, new Map());
     }
 
-    this.entities.get(entityName)?.set(secureId, entity);
+    this.entities.get(entityName)?.set(id, entity);
 
-    const waiters = this.stubs.get(entityName)?.get(secureId);
+    const waiters = this.stubs.get(entityName)?.get(id);
     if (!waiters) {
       return;
     }
@@ -36,17 +36,17 @@ export default class ApiEntityRegistry {
       entry.owner.replaceRelationship(entry.stub, entity);
     }
 
-    this.stubs.get(entityName)?.delete(secureId);
+    this.stubs.get(entityName)?.delete(id);
   }
 
   registerStub(owner: AbstractApiEntity, stub: ApiEntityStub): void {
-    const secureId = stub.secureId;
-    if (!secureId) {
+    const id = stub.id;
+    if (!id) {
       return;
     }
 
     const entityName = this.normalizeName(stub.targetName);
-    const existing = this.entities.get(entityName)?.get(secureId);
+    const existing = this.entities.get(entityName)?.get(id);
     if (existing) {
       owner.replaceRelationship(stub, existing);
       return;
@@ -56,18 +56,18 @@ export default class ApiEntityRegistry {
       this.stubs.set(entityName, new Map());
     }
 
-    if (!this.stubs.get(entityName)?.has(secureId)) {
-      this.stubs.get(entityName)?.set(secureId, []);
+    if (!this.stubs.get(entityName)?.has(id)) {
+      this.stubs.get(entityName)?.set(id, []);
     }
 
-    this.stubs.get(entityName)?.get(secureId)?.push({
+    this.stubs.get(entityName)?.get(id)?.push({
       owner,
       stub,
     });
   }
 
-  resolve(entityName: string, secureId: string): AbstractApiEntity | undefined {
-    return this.entities.get(this.normalizeName(entityName))?.get(secureId);
+  resolve(entityName: string, id: string): AbstractApiEntity | undefined {
+    return this.entities.get(this.normalizeName(entityName))?.get(id);
   }
 
   private normalizeName(name?: string): string {

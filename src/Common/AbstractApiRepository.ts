@@ -56,10 +56,10 @@ type PostEntityOptions = {
   entity: AbstractApiEntity;
   query?: ApiQuery;
 };
-type PostEntityBySecureIdOptions = {
+type PostEntityByIdOptions = {
   endpoint: string;
   entity: AbstractApiEntity;
-  secureId?: string | number;
+  id?: string | number;
   query?: ApiQuery;
 };
 type PostEntitiesOptions = {
@@ -81,7 +81,7 @@ type FetchListCachedByNameOptions<T extends AbstractApiEntity> = {
 };
 type FetchCachedByNameOptions = {
   cacheName?: string;
-  secureId: string | number;
+  id: string | number;
   endpoint?: string;
   ttlMs?: number | null;
   forceRefresh?: boolean;
@@ -382,16 +382,16 @@ export default abstract class AbstractApiRepository<
   async fetchCached(options: FetchCachedByNameOptions): Promise<T> {
     const {
       cacheName,
-      secureId,
+      id,
       endpoint = 'show',
       ttlMs = AbstractApiRepository.CACHE_TTL_DEFAULT,
       forceRefresh = false,
     } = options;
     const resolvedCacheName = cacheName?.trim() || this.getDefaultEntityCacheName();
 
-    const identifier = String(secureId ?? '').trim();
+    const identifier = String(id ?? '').trim();
     if (!identifier) {
-      throw new Error('secureId is required for fetchCached().');
+      throw new Error('id is required for fetchCached().');
     }
 
     const cacheKey = this.buildNamedEntityCacheKey(resolvedCacheName, endpoint, identifier);
@@ -407,7 +407,7 @@ export default abstract class AbstractApiRepository<
     }
 
     if (!forceRefresh) {
-      const bridgedEntity = this.findCachedEntityBySecureId(identifier);
+      const bridgedEntity = this.findCachedEntityById(identifier);
       if (bridgedEntity) {
         this.namedEntityCache.set(cacheKey, {
           value: bridgedEntity,
@@ -451,12 +451,8 @@ export default abstract class AbstractApiRepository<
     return inFlight;
   }
 
-  invalidateNamedEntityCache(
-    cacheName: string,
-    secureId?: string | number,
-    endpoint = 'show'
-  ): void {
-    if (secureId === undefined || secureId === null || String(secureId).trim() === '') {
+  invalidateNamedEntityCache(cacheName: string, id?: string | number, endpoint = 'show'): void {
+    if (id === undefined || id === null || String(id).trim() === '') {
       const prefix = `${cacheName}::`;
       for (const key of this.namedEntityCache.keys()) {
         if (key.startsWith(prefix)) {
@@ -466,7 +462,7 @@ export default abstract class AbstractApiRepository<
       return;
     }
 
-    const cacheKey = this.buildNamedEntityCacheKey(cacheName, endpoint, String(secureId).trim());
+    const cacheKey = this.buildNamedEntityCacheKey(cacheName, endpoint, String(id).trim());
     this.namedEntityCache.delete(cacheKey);
   }
 
@@ -514,19 +510,19 @@ export default abstract class AbstractApiRepository<
     return this.createFromApiItem(item);
   }
 
-  async postEntityBySecureId(options: PostEntityBySecureIdOptions): Promise<T> {
-    const { endpoint, entity, secureId, query = {} } = options;
-    const resolvedSecureId = secureId ?? entity.secureId;
+  async postEntityById(options: PostEntityByIdOptions): Promise<T> {
+    const { endpoint, entity, id, query = {} } = options;
+    const resolvedId = id ?? entity.id;
 
-    if (!resolvedSecureId) {
-      throw new Error('Missing secureId for postEntityBySecureId().');
+    if (!resolvedId) {
+      throw new Error('Missing id for postEntityById().');
     }
 
     const payload = entity.toApiPayload();
 
     const data = await this.client
       .post({
-        path: this.buildPath(`${endpoint}/${encodeURIComponent(resolvedSecureId)}`),
+        path: this.buildPath(`${endpoint}/${encodeURIComponent(resolvedId)}`),
         options: {
           json: payload,
           searchParams: query,
@@ -608,8 +604,8 @@ export default abstract class AbstractApiRepository<
     return entry.expiresAt === null || entry.expiresAt > now;
   }
 
-  private buildNamedEntityCacheKey(cacheName: string, endpoint: string, secureId: string): string {
-    return `${cacheName}::${endpoint}::${secureId}`;
+  private buildNamedEntityCacheKey(cacheName: string, endpoint: string, id: string): string {
+    return `${cacheName}::${endpoint}::${id}`;
   }
 
   private getDefaultListCacheName(): string {
@@ -620,9 +616,9 @@ export default abstract class AbstractApiRepository<
     return `${this.getEntityType().entityName}::${AbstractApiRepository.CACHE_NAME_ENTITY}`;
   }
 
-  private findCachedEntityBySecureId(secureId: string): T | undefined {
+  private findCachedEntityById(id: string): T | undefined {
     const entityType = this.getEntityType();
-    const fromRegistry = this.getEntityRegistry().resolve(entityType.entityName, secureId);
+    const fromRegistry = this.getEntityRegistry().resolve(entityType.entityName, id);
     if (fromRegistry) {
       return fromRegistry as T;
     }
@@ -632,7 +628,7 @@ export default abstract class AbstractApiRepository<
         continue;
       }
 
-      const matched = entry.value.find((entity) => entity?.secureId === secureId);
+      const matched = entry.value.find((entity) => entity?.id === id);
       if (matched) {
         return matched;
       }

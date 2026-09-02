@@ -88,8 +88,8 @@ function serializeRelationValue(value: unknown): string | null {
   }
 
   if (value && typeof value === 'object') {
-    const secureId = (value as { secureId?: unknown }).secureId;
-    return typeof secureId === 'string' ? secureId : null;
+    const id = (value as { id?: unknown }).id;
+    return typeof id === 'string' ? id : null;
   }
 
   return null;

@@ -40,7 +40,7 @@ export type ApiEntityConstructor<T extends AbstractApiEntity> = {
 
 export default abstract class AbstractApiEntity {
   static readonly entityName: string;
-  secureId?: string;
+  id?: string;
   readonly entityName?: string;
   metadata: ApiEntityMetadata;
   relationships: AbstractApiEntity[];
@@ -48,14 +48,14 @@ export default abstract class AbstractApiEntity {
 
   constructor(data: ApiEntityData = {}) {
     this.data = {};
-    this.secureId = undefined;
+    this.id = undefined;
     this.metadata = [];
     this.relationships = [];
     this.entityName = (this.constructor as typeof AbstractApiEntity).entityName;
 
     this.patch(data);
 
-    // Allow dynamic getX()/getXSecureId() via Proxy, similar to PHP __call.
+    // Allow dynamic getX()/getXId() via Proxy, similar to PHP __call.
     if ((this.constructor as typeof AbstractApiEntity).useProxy) {
       // biome-ignore lint/correctness/noConstructorReturn: returning a Proxy from the constructor is intentional
       return AbstractApiEntity.createProxy(this);
@@ -104,8 +104,8 @@ export default abstract class AbstractApiEntity {
 
       if (
         relationship.isStub?.() &&
-        relationship.secureId &&
-        relationship.secureId === stub.secureId
+        relationship.id &&
+        relationship.id === stub.id
       ) {
         const targetName = (relationship as { targetName?: string }).targetName;
         const stubTargetName = (stub as { targetName?: string }).targetName;
@@ -156,12 +156,12 @@ export default abstract class AbstractApiEntity {
     });
   }
 
-  findRelationship(secureId: string): AbstractApiEntity | undefined {
-    return this.relationships.find((relationship) => relationship.secureId === secureId);
+  findRelationship(id: string): AbstractApiEntity | undefined {
+    return this.relationships.find((relationship) => relationship.id === id);
   }
 
-  getSecureIdFor(name: string): string | undefined {
-    const property = `${name}SecureId`;
+  getIdFor(name: string): string | undefined {
+    const property = `${name}Id`;
     const value = this.getDataValue(property);
 
     return typeof value === 'string' ? value : undefined;
@@ -170,8 +170,8 @@ export default abstract class AbstractApiEntity {
   setDataValue(name: string, value: unknown): void {
     this.data[name] = value;
 
-    if (name === 'secureId') {
-      this.secureId = typeof value === 'string' ? value : undefined;
+    if (name === 'id') {
+      this.id = typeof value === 'string' ? value : undefined;
     }
   }
 
@@ -285,15 +285,16 @@ export default abstract class AbstractApiEntity {
         }
 
         if (prop.startsWith('get') && prop.length > 3) {
-          if (prop.endsWith('SecureId')) {
-            const name = prop.slice(3, -8);
+          // `getId` itself would leave an empty relationship name behind.
+          if (prop.endsWith('Id') && prop.length > 5) {
+            const name = prop.slice(3, -2);
             return () => {
               const relationship = obj.getRelationship(name);
-              if (relationship?.secureId) {
-                return relationship.secureId;
+              if (relationship?.id) {
+                return relationship.id;
               }
 
-              return obj.getSecureIdFor(name);
+              return obj.getIdFor(name);
             };
           }
 

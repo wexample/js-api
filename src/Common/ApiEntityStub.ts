@@ -7,13 +7,13 @@ export default class ApiEntityStub extends AbstractApiEntity {
   static readonly entityName = 'stub';
   static readonly schema: ApiEntitySchema = {
     name: 'stub',
-    properties: [{ name: 'secureId', type: 'string' }],
+    properties: [{ name: 'id', type: 'string' }],
   };
 
   targetName: string;
 
   constructor(data: ApiEntityData = {}) {
-    super({ secureId: data['secureId'] as string | undefined });
+    super({ id: data['id'] as string | undefined });
     this.targetName = data['target'] as string;
   }
 

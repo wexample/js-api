@@ -13,7 +13,7 @@ const AbstractEntitySingleMixin = {
       required: false,
       default: null,
     },
-    entitySecureId: {
+    entityId: {
       type: [String, Number],
       required: false,
       default: null,
@@ -34,10 +34,10 @@ const AbstractEntitySingleMixin = {
       this.entity = newEntity ?? null;
     },
 
-    async entitySecureId(newSecureId, oldSecureId) {
+    async entityId(newId, oldId) {
       this.validateEntitySource();
 
-      if (this.entityInstance || !newSecureId || newSecureId === oldSecureId) {
+      if (this.entityInstance || !newId || newId === oldId) {
         return;
       }
 
@@ -80,23 +80,21 @@ const AbstractEntitySingleMixin = {
 
     validateEntitySource() {
       const hasEntityInstance = this.entityInstance !== null && this.entityInstance !== undefined;
-      const hasEntitySecureId =
-        this.entitySecureId !== null &&
-        this.entitySecureId !== undefined &&
-        this.entitySecureId !== '';
+      const hasEntityId =
+        this.entityId !== null && this.entityId !== undefined && this.entityId !== '';
 
-      if (hasEntityInstance === hasEntitySecureId) {
-        throw new Error('Provide exactly one of entityInstance or entitySecureId.');
+      if (hasEntityInstance === hasEntityId) {
+        throw new Error('Provide exactly one of entityInstance or entityId.');
       }
     },
 
     async fetchEntity() {
-      const secureId = this.getEntitySecureId();
+      const id = this.getEntityId();
 
       this.entityLoading = true;
       try {
         this.entity = await this.getEntityRepository().fetch({
-          identifier: secureId,
+          identifier: id,
         });
         return this.entity;
       } finally {
@@ -104,15 +102,15 @@ const AbstractEntitySingleMixin = {
       }
     },
 
-    getEntitySecureId() {
-      const secureIdFromEntity = this.entity?.secureId ?? this.entityInstance?.secureId;
-      const secureId = secureIdFromEntity ?? this.entitySecureId;
+    getEntityId() {
+      const idFromEntity = this.entity?.id ?? this.entityInstance?.id;
+      const id = idFromEntity ?? this.entityId;
 
-      if (secureId === null || secureId === undefined || secureId === '') {
-        throw new Error('Missing entity secureId.');
+      if (id === null || id === undefined || id === '') {
+        throw new Error('Missing entity id.');
       }
 
-      return String(secureId);
+      return String(id);
     },
 
     getCachedRelationshipsMap(): Record<string, Promise<AbstractApiEntity[]> | null> | string[] {
@@ -142,19 +140,17 @@ const AbstractEntitySingleMixin = {
 
     getCachedRelationship(name: string, entity?: AbstractApiEntity): AbstractApiEntity | null {
       const camelName = stringToCamelCase(name);
-      const secureId = (entity ?? (this as any).entity).data[camelName];
+      const id = (entity ?? (this as any).entity).data[camelName];
       return (
-        this.cachedRelationships[camelName]?.find(
-          (e: AbstractApiEntity) => e.secureId === secureId
-        ) ?? null
+        this.cachedRelationships[camelName]?.find((e: AbstractApiEntity) => e.id === id) ?? null
       );
     },
 
-    getCachedRelationshipsBySecureIds(name: string, secureIds: string[]): AbstractApiEntity[] {
+    getCachedRelationshipsByIds(name: string, ids: string[]): AbstractApiEntity[] {
       const camelName = stringToCamelCase(name);
       return (
         this.cachedRelationships[camelName]?.filter((e: AbstractApiEntity) =>
-          secureIds.includes(e.secureId)
+          ids.includes(e.id)
         ) ?? []
       );
     },
@@ -172,17 +168,17 @@ const AbstractEntitySingleMixin = {
     },
 
     async deleteCurrentEntity() {
-      const secureId = this.getEntitySecureId();
+      const id = this.getEntityId();
       const deletedEntity = this.entity;
 
       await this.getEntityRepository().deleteEntity({
-        identifier: secureId,
+        identifier: id,
       });
 
       this.entity = null;
       this.$emit('entity-deleted', {
         entity: deletedEntity,
-        identifier: secureId,
+        identifier: id,
       });
     },
   },
