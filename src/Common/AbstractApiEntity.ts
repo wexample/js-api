@@ -102,11 +102,7 @@ export default abstract class AbstractApiEntity {
         return entity;
       }
 
-      if (
-        relationship.isStub?.() &&
-        relationship.id &&
-        relationship.id === stub.id
-      ) {
+      if (relationship.isStub?.() && relationship.id && relationship.id === stub.id) {
         const targetName = (relationship as { targetName?: string }).targetName;
         const stubTargetName = (stub as { targetName?: string }).targetName;
         if (targetName && stubTargetName && targetName === stubTargetName) {

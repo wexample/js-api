@@ -149,9 +149,8 @@ const AbstractEntitySingleMixin = {
     getCachedRelationshipsByIds(name: string, ids: string[]): AbstractApiEntity[] {
       const camelName = stringToCamelCase(name);
       return (
-        this.cachedRelationships[camelName]?.filter((e: AbstractApiEntity) =>
-          ids.includes(e.id)
-        ) ?? []
+        this.cachedRelationships[camelName]?.filter((e: AbstractApiEntity) => ids.includes(e.id)) ??
+        []
       );
     },
 
