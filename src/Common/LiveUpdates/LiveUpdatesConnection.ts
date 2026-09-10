@@ -1,4 +1,6 @@
-import RetryBackoffScheduler from '@wexample/js-helpers/Common/RetryBackoffScheduler';
+import RetryBackoffScheduler, {
+  type RetryBackoffScheduleContext,
+} from '@wexample/js-helpers/Common/RetryBackoffScheduler';
 import { type ReconnectBackoffOptions } from '@wexample/js-helpers/Helper/Reconnect';
 import type { LiveUpdatesDriverInterface } from './LiveUpdatesDriver';
 
@@ -21,6 +23,9 @@ export type LiveUpdatesConnectionOptions = {
     status: LiveUpdatesConnectionStatus,
     previousStatus: LiveUpdatesConnectionStatus
   ) => void;
+  // Fired when a retry is booked, with the attempt number and the delay before it:
+  // the 'reconnecting' status alone says a retry is coming, not how far in.
+  onReconnectScheduled?: (context: RetryBackoffScheduleContext) => void;
   reconnect?: ReconnectBackoffOptions;
 };
 
@@ -54,6 +59,9 @@ export default class LiveUpdatesConnection {
     status: LiveUpdatesConnectionStatus,
     previousStatus: LiveUpdatesConnectionStatus
   ) => void;
+  private readonly onReconnectScheduled?: (
+    context: RetryBackoffScheduleContext
+  ) => void;
   private readonly reconnectScheduler: RetryBackoffScheduler;
   private readonly observers = new Set<LiveUpdatesConnectionObserver>();
   private source: EventSource | null = null;
@@ -64,6 +72,7 @@ export default class LiveUpdatesConnection {
     this.topics = [...options.topics];
     this.onMessage = options.onMessage;
     this.onStatusChange = options.onStatusChange;
+    this.onReconnectScheduled = options.onReconnectScheduled;
     this.reconnectScheduler = new RetryBackoffScheduler(
       options.reconnect ?? DEFAULT_RECONNECT_OPTIONS
     );
@@ -174,7 +183,7 @@ export default class LiveUpdatesConnection {
       return;
     }
 
-    this.reconnectScheduler.schedule(() => {
+    const context = this.reconnectScheduler.schedule(() => {
       if (this.currentStatus === 'closed') {
         return;
       }
@@ -183,6 +192,10 @@ export default class LiveUpdatesConnection {
       this.updateStatus('reconnecting');
       this.open();
     });
+
+    if (context) {
+      this.onReconnectScheduled?.(context);
+    }
   }
 
   private closeSource(): void {

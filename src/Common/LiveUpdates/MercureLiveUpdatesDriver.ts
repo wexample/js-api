@@ -14,15 +14,35 @@ export type MercureDriverConfig = {
   additionalParams?: Record<string, string | number | boolean>;
 };
 
-export default class MercureLiveUpdatesDriver implements LiveUpdatesDriverInterface {
-  private readonly configResolver: () => MercureDriverConfig;
+// Called on every connect, so a reconnection can carry a token the previous one no
+// longer had — see LiveSubscriberInfoResolver.
+export type MercureDriverConfigResolver = () =>
+  | MercureDriverConfig
+  | Promise<MercureDriverConfig>;
 
-  constructor(config: MercureDriverConfig | (() => MercureDriverConfig)) {
+export default class MercureLiveUpdatesDriver implements LiveUpdatesDriverInterface {
+  private readonly configResolver: MercureDriverConfigResolver;
+
+  constructor(config: MercureDriverConfig | MercureDriverConfigResolver) {
     this.configResolver = typeof config === 'function' ? config : () => config;
   }
 
-  connect(options: LiveUpdatesDriverConnectOptions): EventSource {
+  // A synchronous resolver still opens synchronously: only a resolver that has to go
+  // and fetch a token defers, and the interface has always allowed that.
+  connect(options: LiveUpdatesDriverConnectOptions): EventSource | Promise<EventSource> {
     const config = this.configResolver();
+
+    if (config instanceof Promise) {
+      return config.then((resolved) => this.open(resolved, options));
+    }
+
+    return this.open(config, options);
+  }
+
+  private open(
+    config: MercureDriverConfig,
+    options: LiveUpdatesDriverConnectOptions
+  ): EventSource {
     const hubPath = config.hubPath ?? '/.well-known/mercure';
     const topicParamName = config.topicParamName ?? 'topic';
     // Mercure hubs expect the subscriber JWT in the "authorization" query
