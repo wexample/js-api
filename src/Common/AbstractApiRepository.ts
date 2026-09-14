@@ -224,6 +224,14 @@ export default abstract class AbstractApiRepository<
   }
 
   public buildPath(pathSuffix: string): string {
+    // A path opening on a slash is given whole. An entity is not always served
+    // under its own name — one listed inside a container is addressed by that
+    // container — and hanging such a path under the entity name would point it
+    // nowhere. The client drops the leading slash on its way out.
+    if (pathSuffix.startsWith('/')) {
+      return pathSuffix;
+    }
+
     const entityName = (this.constructor as typeof AbstractApiRepository).getEntityName();
     const base = stringToKebabCase(entityName);
     return `${base}/${pathSuffix}`;
