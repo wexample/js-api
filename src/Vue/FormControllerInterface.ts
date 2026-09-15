@@ -1,10 +1,7 @@
-import type { FieldControllerInterface } from './FieldControllerInterface';
+import type { FieldRegistryInterface } from './FieldRegistryInterface';
 
-export interface FormControllerInterface {
+export interface FormControllerInterface extends FieldRegistryInterface {
   isSubmitting: boolean;
-  registerField(field: FieldControllerInterface): void;
-  unregisterField(field: FieldControllerInterface): void;
-  getField(name: string): FieldControllerInterface | undefined;
   beginSubmit(): void;
   endSubmit(): void;
 }

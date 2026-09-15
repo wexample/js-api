@@ -17,6 +17,10 @@ export class VueFormController implements FormControllerInterface {
     return this.fields.get(name);
   }
 
+  getFields(): FieldControllerInterface[] {
+    return [...this.fields.values()];
+  }
+
   beginSubmit(): void {
     this.isSubmitting = true;
     this.fields.forEach((field) => field.disable());
