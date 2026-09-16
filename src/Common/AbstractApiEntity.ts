@@ -230,6 +230,18 @@ export default abstract class AbstractApiEntity {
     }
   }
 
+  // Takes over the state of a fresher reading of the same entity, keeping this
+  // instance — and every reference held to it — current. The fresh values went
+  // through set() when the reading was hydrated, so they land here as they are.
+  absorb(fresh: AbstractApiEntity): void {
+    for (const [name, value] of Object.entries(fresh.getData())) {
+      this.setDataValue(name, value);
+    }
+
+    this.setMetadata(fresh.metadata);
+    this.setRelationships(fresh.relationships);
+  }
+
   toApiPayload(): ApiEntityData {
     const output: ApiEntityData = {};
     const schemaProperties = this.getSchemaProperties();
