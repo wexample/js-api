@@ -59,9 +59,7 @@ export default class LiveUpdatesConnection {
     status: LiveUpdatesConnectionStatus,
     previousStatus: LiveUpdatesConnectionStatus
   ) => void;
-  private readonly onReconnectScheduled?: (
-    context: RetryBackoffScheduleContext
-  ) => void;
+  private readonly onReconnectScheduled?: (context: RetryBackoffScheduleContext) => void;
   private readonly reconnectScheduler: RetryBackoffScheduler;
   private readonly observers = new Set<LiveUpdatesConnectionObserver>();
   private source: EventSource | null = null;

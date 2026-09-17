@@ -16,9 +16,7 @@ export type MercureDriverConfig = {
 
 // Called on every connect, so a reconnection can carry a token the previous one no
 // longer had — see LiveSubscriberInfoResolver.
-export type MercureDriverConfigResolver = () =>
-  | MercureDriverConfig
-  | Promise<MercureDriverConfig>;
+export type MercureDriverConfigResolver = () => MercureDriverConfig | Promise<MercureDriverConfig>;
 
 export default class MercureLiveUpdatesDriver implements LiveUpdatesDriverInterface {
   private readonly configResolver: MercureDriverConfigResolver;
@@ -39,10 +37,7 @@ export default class MercureLiveUpdatesDriver implements LiveUpdatesDriverInterf
     return this.open(config, options);
   }
 
-  private open(
-    config: MercureDriverConfig,
-    options: LiveUpdatesDriverConnectOptions
-  ): EventSource {
+  private open(config: MercureDriverConfig, options: LiveUpdatesDriverConnectOptions): EventSource {
     const hubPath = config.hubPath ?? '/.well-known/mercure';
     const topicParamName = config.topicParamName ?? 'topic';
     // Mercure hubs expect the subscriber JWT in the "authorization" query

@@ -1,6 +1,6 @@
 # @wexample/js-api
 
-Version: 5.0.0
+Version: 6.0.0
 
 `@wexample/js-api` is the TypeScript client layer for Wexample's Symfony APIs: `AbstractApiClient` wraps `ky` with a base URL, a bearer token, default headers and a `beforeError` hook that maps HTTP failures to `ApiHttpError`, while `AbstractApiEntity` and `AbstractApiRepository` turn `{type, entity, metadata, relationships}` responses into typed entities checked field by field against the entity schema — an unknown key throws an `ApiSchemaError` instead of landing silently in the object. Repositories add named list and entity caches with TTL and in-flight deduplication, zero-indexed pagination mirroring `Wexample\SymfonyApi\Api\Dto\PaginationDto`, and hydration of relationships through the repositories registered on the client.
 
@@ -58,7 +58,11 @@ Two caches live on the repository instance, `namedListCache` and `namedEntityCac
 
 ### Live updates
 
-Three pieces, deliberately separate. `LiveUpdatesDriverInterface` is the whole transport contract — one method, `connect({ topics }): EventSource | Promise<EventSource>`, async so a driver can fetch a subscriber token first. `MercureLiveUpdatesDriver` implements it by building `<hubUrl>/.well-known/mercure?topic=…&authorization=<jwt>`; the JWT travels as a query parameter because `EventSource` cannot set an `Authorization` header. `LiveUpdatesConnection` owns everything else: it opens the stream, JSON-parses `event.data` (falling back to the raw string), and reconnects through a `RetryBackoffScheduler` from `@wexample/js-helpers`, exposing the states `connecting`, `open`, `error`, `reconnecting`, `reconnect-stopped`, `closed`.
+Three pieces, deliberately separate. `LiveUpdatesDriverInterface` is the whole transport contract — one method, `connect({ topics }): EventSource | Promise<EventSource>`, async so a driver can fetch a subscriber token first. `MercureLiveUpdatesDriver` implements it by building `<hubUrl>/.well-known/mercure?topic=…&authorization=<jwt>`; the JWT travels as a query parameter because `EventSource` cannot set an `Authorization` header. `LiveUpdatesConnection` owns everything else: it opens the stream, JSON-parses `event.data` (falling back to the raw string), and reconnects through a `RetryBackoffScheduler` from `@wexample/js-helpers`, exposing the states `connecting`, `open`, `error`, `reconnecting`, `reconnect-stopped`, `closed`. The optional `onReconnectScheduled` callback adds what a status cannot say — the attempt number and the delay before the retry.
+
+`LiveSubscriberInfoResolver` (src/Common/LiveUpdates/LiveSubscriberInfoResolver.ts) is what makes a token outlive its own expiry. It wraps a `fetchInfo()` supplied by the application — the call to `symfony-live`'s `subscribe-info` endpoint, whose `{hubUrl, jwt, topics, expiresAt}` shape it types — and caches the answer until `renewMarginMs` (default 60s) before `expiresAt`. Connections opening together share one in-flight request; `invalidate()` drops the token when a hub rejects it for a reason expiry does not explain.
+
+It exists because the failure is invisible otherwise: a hub never closes a stream whose token has expired, so nothing goes wrong until the next reconnection, which then loops on a 401 no listener reports. `MercureLiveUpdatesDriver` calls its config resolver on *every* connect, so passing an async resolver that awaits `resolve()` is the whole wiring. A synchronous resolver still returns an `EventSource` synchronously — only an async one defers, which is why the driver returns a union rather than always a promise.
 
 `LiveUpdatesConnectionRegistry` observes connections without owning them: `register()` attaches a passive observer, an incoming `closed` status auto-unregisters, and `getAggregatedStatus()` returns one counter per state plus `hasActiveConnection`. A status widget listens through `onEvent()` and never touches a connection.
 
