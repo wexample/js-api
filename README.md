@@ -1,6 +1,6 @@
 # @wexample/js-api
 
-Version: 6.0.0
+Version: 6.0.1
 
 `@wexample/js-api` is the TypeScript client layer for Wexample's Symfony APIs: `AbstractApiClient` wraps `ky` with a base URL, a bearer token, default headers and a `beforeError` hook that maps HTTP failures to `ApiHttpError`, while `AbstractApiEntity` and `AbstractApiRepository` turn `{type, entity, metadata, relationships}` responses into typed entities checked field by field against the entity schema — an unknown key throws an `ApiSchemaError` instead of landing silently in the object. Repositories add named list and entity caches with TTL and in-flight deduplication, zero-indexed pagination mirroring `Wexample\SymfonyApi\Api\Dto\PaginationDto`, and hydration of relationships through the repositories registered on the client.
 
@@ -92,7 +92,7 @@ Visit the [Wexample Suite documentation](https://docs.wexample.com) for the comp
 
 ## Dependencies
 
-- @wexample/js-helpers: 0.0.37
+- @wexample/js-helpers: >=1.0.0
 - ky: ^1.4.0
 
 ## Versioning & Compatibility Policy
