@@ -275,8 +275,13 @@ export default abstract class AbstractApiEntity {
     return new Proxy(target, {
       get(obj, prop, receiver) {
         const value = Reflect.get(obj, prop, receiver);
+        // Bound to what the member was read through, and not to the bare
+        // entity: an entity held by a reactive list — a vue component's — is
+        // read through the list's wrapper, and a method bound past it reads and
+        // writes out of its sight. A refresh absorbed that way changed the
+        // values and told nothing that showed them.
         if (typeof value === 'function') {
-          return value.bind(obj);
+          return value.bind(receiver);
         }
 
         if (typeof prop !== 'string') {
@@ -287,7 +292,7 @@ export default abstract class AbstractApiEntity {
           return value;
         }
 
-        const dataValue = obj.getDataValue(prop);
+        const dataValue = receiver.getDataValue(prop);
         if (dataValue !== undefined) {
           return dataValue;
         }
@@ -297,30 +302,30 @@ export default abstract class AbstractApiEntity {
           if (prop.endsWith('Id') && prop.length > 5) {
             const name = prop.slice(3, -2);
             return () => {
-              const relationship = obj.getRelationship(name);
+              const relationship = receiver.getRelationship(name);
               if (relationship?.id) {
                 return relationship.id;
               }
 
-              return obj.getIdFor(name);
+              return receiver.getIdFor(name);
             };
           }
 
           if (prop !== 'getRelationship' && prop !== 'getRelationships') {
             const name = prop.slice(3);
             return () => {
-              const single = obj.getRelationship(name);
+              const single = receiver.getRelationship(name);
               if (single !== undefined) {
                 return single;
               }
 
-              const many = obj.getRelationships(name);
+              const many = receiver.getRelationships(name);
               if (many.length) {
                 return many;
               }
 
               const fieldName = lowerFirstCharacter(name);
-              return obj.getDataValue(fieldName);
+              return receiver.getDataValue(fieldName);
             };
           }
         }
