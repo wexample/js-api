@@ -9,5 +9,5 @@ global:
   type: app
   version: 6.0.1
 wex:
-  migration: 6
+  migration: 7
   version: 6.0.136
