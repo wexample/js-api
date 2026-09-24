@@ -280,7 +280,11 @@ export default abstract class AbstractApiEntity {
         // read through the list's wrapper, and a method bound past it reads and
         // writes out of its sight. A refresh absorbed that way changed the
         // values and told nothing that showed them.
-        if (typeof value === 'function') {
+        //
+        // The class itself is not a method and is handed over as it is: bound,
+        // it would lose its own statics and answer with its parent's — the
+        // schema of no entity at all.
+        if (typeof value === 'function' && prop !== 'constructor') {
           return value.bind(receiver);
         }
 
