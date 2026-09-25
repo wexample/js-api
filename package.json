@@ -1,5 +1,5 @@
 {
-  "version": "7.0.2",
+  "version": "7.0.3",
   "type": "module",
   "name": "@wexample/js-api",
   "scripts": {
@@ -13,7 +13,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@wexample/js-helpers": ">=2.0.0",
+    "@wexample/js-helpers": ">=3.0.0",
     "ky": "^1.4.0"
   },
   "repository": "https://github.com/wexample/js-api",

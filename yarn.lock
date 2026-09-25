@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@wexample/js-helpers@>=2.0.0":
-  "integrity" "sha512-n7z9eH4YCifvC7MePdiZK/61If5IzGQfANnykDzFoNNmLggZJDbPXBClvZ6OOBVAc1fNx6Bp0rXgJbDV9CkvXQ=="
-  "resolved" "https://registry.npmjs.org/@wexample/js-helpers/-/js-helpers-2.0.0.tgz"
-  "version" "2.0.0"
+"@wexample/js-helpers@>=3.0.0":
+  "integrity" "sha512-X1rAMIObwkL8HHDSR/35jBJtYs4YWm0QBM68GdS9TNaY/slpFgNuWKJCC+9Pmyo6fhYppVY9I0R5vZmXIArNlQ=="
+  "resolved" "https://registry.npmjs.org/@wexample/js-helpers/-/js-helpers-3.0.0.tgz"
+  "version" "3.0.0"
 
 "ky@^1.4.0":
   "integrity" "sha512-q3RBbsO5A5zrPhB6CaCS8ZUv+NWCXv6JJT4Em0i264G9W0fdPB8YRfnnEi7Dm7X7omAkBIPojzYJ2D1oHTHqug=="
