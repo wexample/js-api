@@ -1,3 +1,12 @@
-`@wexample/js-api` is the TypeScript client layer for Wexample's Symfony APIs: `AbstractApiClient` wraps `ky` with a base URL, a bearer token, default headers and a `beforeError` hook that maps HTTP failures to `ApiHttpError`, while `AbstractApiEntity` and `AbstractApiRepository` turn `{type, entity, metadata, relationships}` responses into typed entities checked field by field against the entity schema — an unknown key throws an `ApiSchemaError` instead of landing silently in the object. Repositories add named list and entity caches with TTL and in-flight deduplication, zero-indexed pagination mirroring `Wexample\SymfonyApi\Api\Dto\PaginationDto`, and hydration of relationships through the repositories registered on the client.
+`@wexample/js-api` is a generic TypeScript client for any JSON API: `AbstractApiClient` wraps `ky` with a base URL, a bearer token, default headers and a `beforeError` hook that maps HTTP failures to `ApiHttpError`, which says whether retrying may help (`isTransient()`). Its `ApiClientOptions` carry the transport policy shared with php-api's `ClientOptions` and the Python `wexample_api` gateway — timeout, retries of idempotent requests, a minimum delay between requests — and `checkConnection()` answers health checks.
 
-It targets front-end applications consuming those APIs: Mercure live updates over `EventSource` and Vue mixins for collection, single-entity and form components ship in the same package, which is published as raw `.ts` sources under `./*` exports rather than a compiled bundle.
+It knows nothing about the remote's payloads. Front-ends consuming APIs served by `wexample/symfony-api` — envelope, entity schemas, repositories, Mercure live updates — build on `@wexample/js-api-entity`, which extends this package. The Vue form helpers (`AbstractFormMixin`, `VueFormController`) ship here too, published as raw `.ts` sources under `./*` exports rather than a compiled bundle.
+
+```ts
+class ExampleClient extends AbstractApiClient {
+  static pingPath = 'health';
+}
+
+const client = ExampleClient.create({ baseUrl: 'https://api.example.com', timeout: 30, retries: 2 });
+await client.checkConnection(); // boolean, never throws
+```
