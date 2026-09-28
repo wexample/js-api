@@ -13,6 +13,12 @@ export type ApiHttpErrorOptions = {
 };
 
 export default class ApiHttpError extends AbstractAppError {
+  /**
+   * Statuses a later identical request may not get: timeout, too early,
+   * rate limited. Every 5xx is transient too.
+   */
+  static readonly TRANSIENT_STATUS_CODES: readonly number[] = [408, 425, 429];
+
   public readonly status: number;
   public readonly statusText: string;
   public readonly url: string;
@@ -38,6 +44,18 @@ export default class ApiHttpError extends AbstractAppError {
     this.url = options.url;
     this.method = options.method || 'GET';
     this.payload = options.payload;
+  }
+
+  static isTransientStatus(status: number): boolean {
+    return status >= 500 || ApiHttpError.TRANSIENT_STATUS_CODES.includes(status);
+  }
+
+  /**
+   * Whether retrying the same request later may succeed, as opposed to a
+   * request the remote rejected (4xx).
+   */
+  isTransient(): boolean {
+    return ApiHttpError.isTransientStatus(this.status);
   }
 
   static async fromResponse(

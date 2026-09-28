@@ -6,12 +6,29 @@ export type ApiClientErrorContext = {
   pathOrUrl?: string;
 };
 
+/**
+ * Transport options mirror php-api's ClientOptions and the Python
+ * wexample_api AbstractGateway; every duration is in seconds.
+ */
 export type ApiClientOptions = Readonly<{
   baseUrl?: string | null;
   bearerToken?: string | null;
   defaultHeaders?: Record<string, string>;
   onError?: (error: unknown, context?: ApiClientErrorContext) => void | Promise<void>;
+  /** Seconds a whole request may take; `false` waits indefinitely. Defaults to ky's 10 seconds. */
+  timeout?: number | false;
+  /**
+   * Extra attempts after a transient failure, for idempotent methods only:
+   * a retried POST or PATCH could apply twice on the remote.
+   */
+  retries?: number;
+  /** Seconds before the first retry, doubled at each further attempt. */
+  retryDelay?: number;
+  /** Minimum seconds between two requests of the same client. */
+  rateLimitDelay?: number;
 }>;
+
+const IDEMPOTENT_METHODS = ['get', 'put', 'head', 'delete', 'options', 'trace'];
 
 type NoExtra<T, U extends T> = U & Record<Exclude<keyof U, keyof T>, never>;
 type ApiClientGetOptions = {
@@ -74,22 +91,30 @@ type ApiClientBeforeErrorInput = {
 };
 
 export default abstract class AbstractApiClient {
+  /** Path requested by checkConnection(), relative to the base URL. */
+  static pingPath = '';
+
   public readonly baseUrl: string | null;
   protected readonly client: KyInstance;
   protected readonly absoluteClient: KyInstance;
   protected bearerToken: string | null;
   protected defaultHeaders: Record<string, string>;
   protected onError?: (error: unknown, context?: ApiClientErrorContext) => void | Promise<void>;
+  protected readonly rateLimitDelay: number;
+  private nextRequestAt = 0;
 
   protected constructor(options: ApiClientOptions = {}) {
     this.baseUrl = options.baseUrl ?? null;
     this.bearerToken = options.bearerToken ?? null;
     this.defaultHeaders = { ...(options.defaultHeaders ?? {}) };
     this.onError = options.onError;
+    this.rateLimitDelay = options.rateLimitDelay ?? 0;
 
     const hooks = {
       beforeRequest: [
-        (request: Request) => {
+        async (request: Request) => {
+          await this.waitForRateLimit();
+
           const headers = request.headers;
 
           for (const [name, value] of Object.entries(this.defaultHeaders)) {
@@ -131,10 +156,24 @@ export default abstract class AbstractApiClient {
       ],
     };
 
-    const clientOptions = {
+    const retryDelay = options.retryDelay ?? 1;
+    const clientOptions: Options = {
       hooks,
-      retry: 0,
+      retry: {
+        limit: options.retries ?? 0,
+        methods: IDEMPOTENT_METHODS,
+        delay: (attemptCount: number) => retryDelay * 1000 * 2 ** (attemptCount - 1),
+        // beforeError has already turned ky's HTTPError into an ApiHttpError,
+        // which ky's own status check no longer recognizes. Undefined keeps
+        // ky's defaults: network failures retried, timeouts not.
+        shouldRetry: ({ error }: { error: unknown }) =>
+          error instanceof ApiHttpError ? error.isTransient() : undefined,
+      },
     };
+
+    if (options.timeout !== undefined) {
+      clientOptions.timeout = options.timeout === false ? false : options.timeout * 1000;
+    }
 
     this.client = this.baseUrl
       ? ky.create({ ...clientOptions, prefixUrl: this.baseUrl.replace(/\/+$/, '') })
@@ -172,6 +211,40 @@ export default abstract class AbstractApiClient {
   ): T {
     // biome-ignore lint: keep subclass instantiation with `this`.
     return new this(options);
+  }
+
+  /**
+   * Whether the remote answers pingPath without an error status. A failure
+   * of any kind is the answer, not an error: callers use it for health checks.
+   */
+  async checkConnection(): Promise<boolean> {
+    const pingPath = (this.constructor as typeof AbstractApiClient).pingPath;
+
+    try {
+      await this.get({ path: pingPath, options: { context: { captureError: false } } });
+    } catch {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Delays the request so two requests are at least rateLimitDelay apart,
+   * including concurrent ones which are queued one slot after the other.
+   */
+  protected async waitForRateLimit(): Promise<void> {
+    if (this.rateLimitDelay <= 0) {
+      return;
+    }
+
+    const now = Date.now();
+    const sendAt = Math.max(now, this.nextRequestAt);
+    this.nextRequestAt = sendAt + this.rateLimitDelay * 1000;
+
+    if (sendAt > now) {
+      await new Promise((resolve) => setTimeout(resolve, sendAt - now));
+    }
   }
 
   get({ path, options }: ApiClientGetOptions) {
