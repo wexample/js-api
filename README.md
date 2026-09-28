@@ -1,10 +1,19 @@
 # @wexample/js-api
 
-Version: 7.0.3
+Version: 8.0.0
 
-`@wexample/js-api` is the TypeScript client layer for Wexample's Symfony APIs: `AbstractApiClient` wraps `ky` with a base URL, a bearer token, default headers and a `beforeError` hook that maps HTTP failures to `ApiHttpError`, while `AbstractApiEntity` and `AbstractApiRepository` turn `{type, entity, metadata, relationships}` responses into typed entities checked field by field against the entity schema — an unknown key throws an `ApiSchemaError` instead of landing silently in the object. Repositories add named list and entity caches with TTL and in-flight deduplication, zero-indexed pagination mirroring `Wexample\SymfonyApi\Api\Dto\PaginationDto`, and hydration of relationships through the repositories registered on the client.
+`@wexample/js-api` is a generic TypeScript client for any JSON API: `AbstractApiClient` wraps `ky` with a base URL, a bearer token, default headers and a `beforeError` hook that maps HTTP failures to `ApiHttpError`, which says whether retrying may help (`isTransient()`). Its `ApiClientOptions` carry the transport policy shared with php-api's `ClientOptions` and the Python `wexample_api` gateway — timeout, retries of idempotent requests, a minimum delay between requests — and `checkConnection()` answers health checks.
 
-It targets front-end applications consuming those APIs: Mercure live updates over `EventSource` and Vue mixins for collection, single-entity and form components ship in the same package, which is published as raw `.ts` sources under `./*` exports rather than a compiled bundle.
+It knows nothing about the remote's payloads. Front-ends consuming APIs served by `wexample/symfony-api` — envelope, entity schemas, repositories, Mercure live updates — build on `@wexample/js-api-entity`, which extends this package. The Vue form helpers (`AbstractFormMixin`, `VueFormController`) ship here too, published as raw `.ts` sources under `./*` exports rather than a compiled bundle.
+
+```ts
+class ExampleClient extends AbstractApiClient {
+  static pingPath = 'health';
+}
+
+const client = ExampleClient.create({ baseUrl: 'https://api.example.com', timeout: 30, retries: 2 });
+await client.checkConnection(); // boolean, never throws
+```
 
 ## Table of Contents
 
@@ -18,67 +27,35 @@ It targets front-end applications consuming those APIs: Mercure live updates ove
 
 ## Architecture
 
-The package ships three directories under src and no build output: src/Common holds the framework-agnostic client, entity and repository core, src/Helper holds pure functions over schemas and values, src/Vue holds Vue mixins that consume the core. Nothing is compiled — `package.json` maps `"./*"` to `"./src/*.ts"` for both `types` and `default`, so consumers import raw TypeScript (`import AbstractApiEntity from '@wexample/js-api/Common/AbstractApiEntity'`) and bundle it themselves. `npm run build` is `tsc --noEmit`: a type check, not a compilation.
+The package ships a generic client for any JSON API and the Vue form helpers built on it, as raw TypeScript under src: src/Common holds the client and its errors, src/Helper pure functions, src/Vue Vue mixins. Nothing is compiled — `package.json` maps `"./*"` to `"./src/*.ts"` for both `types` and `default`, so consumers import raw TypeScript (`import AbstractApiClient from '@wexample/js-api/Common/AbstractApiClient'`) and bundle it themselves. `npm run build` is `tsc --noEmit`: a type check, not a compilation.
 
-### The two client layers
+The entity layer — entities, schemas, repositories, the `{type, code, data}` envelope, live updates and the code generators — moved to `@wexample/js-api-entity`, whose `AbstractApiEntitiesClient` extends `AbstractApiClient`. Nothing in this package knows the shape of a response body.
 
-`AbstractApiClient` (src/Common/AbstractApiClient.ts) is a `ky` wrapper and owns everything HTTP. It builds two instances from the same hooks: `this.client`, created with `prefixUrl: this.baseUrl.replace(/\/+$/, '')` when a base URL was given, and `this.absoluteClient` for full URLs — hence the `get`/`getAbsolute`, `post`/`postAbsolute`, `delete`/`deleteAbsolute` pairs. `retry: 0` is set explicitly; retries are not this layer's business.
+### The client
 
-Two hooks carry the behaviour. `beforeRequest` re-applies `this.defaultHeaders` and `Authorization: Bearer …` on every request, which is why `setBearerToken()` and `setDefaultHeader()` take effect without rebuilding the client. `beforeError` converts a `ky` `HTTPError` into `ApiHttpError.fromResponse(...)`, then asks `shouldCaptureError()` whether to report it: a per-request `options.context` may carry `captureError: false` or an `onError` callback returning `false`, which suppresses the client-wide `onError` reporter while still returning the mapped error to the caller. That is the escape hatch form submissions use for expected 422-style validation responses.
+`AbstractApiClient` (src/Common/AbstractApiClient.ts) is a `ky` wrapper and owns everything HTTP. It builds two instances from the same hooks and options: `this.client`, created with `prefixUrl: this.baseUrl.replace(/\/+$/, '')` when a base URL was given, and `this.absoluteClient` for full URLs — hence the `get`/`getAbsolute`, `post`/`postAbsolute`, `delete`/`deleteAbsolute` pairs.
 
-`AbstractApiEntitiesClient` extends it with the entity graph. Its constructor instantiates one `ApiEntityManager` from `this.getRepositoryClasses()` — the single abstract method a concrete client must implement — and one `ApiEntityRegistry`. `getRepository(entity)` delegates to the manager and accepts either an entity class or its `entityName` string.
+Two hooks carry the behaviour. `beforeRequest` waits for the rate limit, then re-applies `this.defaultHeaders` and `Authorization: Bearer …` on every request, which is why `setBearerToken()` and `setDefaultHeader()` take effect without rebuilding the client. `beforeError` converts a `ky` `HTTPError` into `ApiHttpError.fromResponse(...)`, then asks `shouldCaptureError()` whether to report it: a per-request `options.context` may carry `captureError: false` or an `onError` callback returning `false`, which suppresses the client-wide `onError` reporter while still returning the mapped error to the caller. That is the escape hatch form submissions use for expected 422-style validation responses.
 
-### Entities, schemas and repositories
+### Transport options
 
-`AbstractApiEntity` is a data bag guarded by a schema. Values live in a private `this.data` record, never as declared class fields, and every write goes through `set(name, value)`, which looks the property up in `retrieveEntitySchema().properties` and throws `ApiSchemaError` when it is unknown or read-only. Hydration from a response uses `assignFromApi()`, which resolves each response key by its *wire* name (`getSchemaPropertyByApiField`) and writes with `{ system: true }` — the privileged flag bypasses the read-only guard but never the schema itself. The reverse direction, `toApiPayload()`, emits only properties that are serializable, writable and actually present in `this.data`.
+`ApiClientOptions` mirrors php-api's `ClientOptions` and the Python `wexample_api` gateway; every duration is in seconds:
 
-Reads go through a `Proxy` installed in the constructor (opt out with `static useProxy = false`). It resolves `getX()` to a relationship, then to a collection of relationships, then to `getDataValue(lowerFirstCharacter(name))`, and `getXId()` to the relationship's `id` or the `xId` data key — the JavaScript counterpart of PHP's `__call`.
+- `timeout` is handed to `ky` (in milliseconds); left undefined, `ky`'s own 10 seconds apply, `false` waits indefinitely;
+- `retries` and `retryDelay` configure `ky`'s retry for idempotent methods only (`get`, `put`, `head`, `delete`, `options`, `trace`) — a retried POST or PATCH could apply twice — with the delay doubled at each attempt. The decision is made by `retry.shouldRetry` on the mapped `ApiHttpError` (`isTransient()`), because `beforeError` has already replaced `ky`'s `HTTPError` by the time `ky` decides; network failures are retried, timeouts are not;
+- `rateLimitDelay` spaces requests of one client; `waitForRateLimit()` books a slot per request, so concurrent requests are queued one delay apart rather than sent together.
 
-`AbstractApiRepository` (src/Common/AbstractApiRepository.ts) owns endpoints, hydration and caching. Paths are derived, not configured: `buildPath()` kebab-cases the entity name and appends the endpoint, so a `userAccount` repository fetches `user-account/list` and `user-account/show/<id>`. Around that sit `fetchListPaginated`/`fetchList`, `fetch`, `post`, `postEntity`, `postEntityById`, `postEntities` and `deleteEntity`, plus the caching variants below.
-
-### The path of a call
-
-`fetchListPaginated()` is the representative trace:
-
-1. the repository builds `user-account/list` and calls `this.client.get({ path, options: { searchParams } })`;
-2. `AbstractApiClient` prefixes the base URL, applies headers and the bearer token, and `ky` performs the request — an HTTP failure leaves here as `ApiHttpError`;
-3. `extractPayload()` runs `unwrapApiEnvelope()`, which validates the `{type, code, message, data}` envelope produced by `wexample/symfony-api` controllers and throws `ApiEnvelopeError` on `type === 'error'`, so no caller ever re-tests `type === 'success'`;
-4. `extractItems()` maps each element through `parseApiItem()`, which requires a string `type` and an object `entity` and tolerates missing `metadata`/`relationships`;
-5. `createFromApiItem()` asserts `item.type === entityType.entityName`, hydrates via `entityType.fromApi(item.entity)`, attaches metadata, registers the instance in the client's `ApiEntityRegistry`, then attaches relationships;
-6. `createRelationships()` resolves each relation's `type` to another repository through `this.client.getRepository(...)` and recurses — an unregistered type raises `ApiSchemaError` naming both the owning entity and the relation;
-7. `extractPagination()` normalises the pagination block, treating its absence as a single full page (`{ page: 0, length: null, total: itemsCount, pagesCount: 1, hasMore: false }`).
-
-`hydrateApiItem(value)` is the public door into steps 4–6 for a payload that did not come from a request — a live update, typically.
-
-Two caches live on the repository instance, `namedListCache` and `namedEntityCache`, both keyed by a cache name (default `<entityName>::all` and `<entityName>::entity`), both storing `{ value, expiresAt, inFlight }`. Concurrent callers share the `inFlight` promise; a rejected refresh restores the previous entry rather than leaving a hole; `ttlMs === null` — the default, `CACHE_TTL_DEFAULT` — means never expires. `fetchCached()` additionally short-circuits through `findCachedEntityById()`, which consults the entity registry and the list caches before issuing a request.
-
-### Identity registry and stubs
-
-`ApiEntityRegistry` keeps one instance per `entityName`/`id` pair and solves forward references. When a response mentions an entity that has not arrived yet, the owner holds an `ApiEntityStub` — an entity whose schema is a lone `id` and whose `isStub()` returns `true` — registered through `registerStub(owner, stub)`. The moment the real entity is registered, `registerEntity()` walks the waiting stubs and calls `owner.replaceRelationship(stub, entity)`. Names are compared normalised: `normalizeName()` snake-cases before lowercasing, so `userAccount` and `user_account` are the same key.
-
-### Live updates
-
-Three pieces, deliberately separate. `LiveUpdatesDriverInterface` is the whole transport contract — one method, `connect({ topics }): EventSource | Promise<EventSource>`, async so a driver can fetch a subscriber token first. `MercureLiveUpdatesDriver` implements it by building `<hubUrl>/.well-known/mercure?topic=…&authorization=<jwt>`; the JWT travels as a query parameter because `EventSource` cannot set an `Authorization` header. `LiveUpdatesConnection` owns everything else: it opens the stream, JSON-parses `event.data` (falling back to the raw string), and reconnects through a `RetryBackoffScheduler` from `@wexample/js-helpers`, exposing the states `connecting`, `open`, `error`, `reconnecting`, `reconnect-stopped`, `closed`. The optional `onReconnectScheduled` callback adds what a status cannot say — the attempt number and the delay before the retry.
-
-`LiveSubscriberInfoResolver` (src/Common/LiveUpdates/LiveSubscriberInfoResolver.ts) is what makes a token outlive its own expiry. It wraps a `fetchInfo()` supplied by the application — the call to `symfony-live`'s `subscribe-info` endpoint, whose `{hubUrl, jwt, topics, expiresAt}` shape it types — and caches the answer until `renewMarginMs` (default 60s) before `expiresAt`. Connections opening together share one in-flight request; `invalidate()` drops the token when a hub rejects it for a reason expiry does not explain.
-
-It exists because the failure is invisible otherwise: a hub never closes a stream whose token has expired, so nothing goes wrong until the next reconnection, which then loops on a 401 no listener reports. `MercureLiveUpdatesDriver` calls its config resolver on *every* connect, so passing an async resolver that awaits `resolve()` is the whole wiring. A synchronous resolver still returns an `EventSource` synchronously — only an async one defers, which is why the driver returns a union rather than always a promise.
-
-`LiveUpdatesConnectionRegistry` observes connections without owning them: `register()` attaches a passive observer, an incoming `closed` status auto-unregisters, and `getAggregatedStatus()` returns one counter per state plus `hasActiveConnection`. A status widget listens through `onEvent()` and never touches a connection.
+Defaults — no retry, no pacing — keep the historical behaviour. `checkConnection()` requests the static `pingPath` (empty by default: the base URL) with error capture disabled and answers a boolean.
 
 ### Errors
 
-All errors extend `AbstractAppError` (src/Common/Errors/AbstractAppError.ts), which adds `kind`, `code`, `severity` and a `context` record on top of `Error`, plus `toLogPayload()` running values through `serializeForLog`. The `kind` field partitions the failures by origin: `api.http` (`ApiHttpError`, severity `error` at 5xx and `warning` below), `api.envelope` (`ApiEnvelopeError`, keeping the raw envelope), `api.schema` (`ApiSchemaError`, with `entityName`/`field` and the four `CODE_*` constants) and `api.live-updates` (`LiveUpdatesError`). Strictness is the design: an `ApiSchemaError` means the API contract drifted, not that the client should cope.
+All errors extend `AbstractAppError` (src/Common/Errors/AbstractAppError.ts), which adds `kind`, `code`, `severity` and a `context` record on top of `Error`, plus `toLogPayload()` running values through `serializeForLog`. This package defines `api.http`: `ApiHttpError`, severity `error` at 5xx and `warning` below, with `isTransient()` true for any 5xx, 408, 425 and 429. `apiErrorIsTransient()` (src/Helper/ApiError.ts) extends the question to any caught value: a transient `ApiHttpError`, a network failure (`fetch` rejects with a `TypeError`) or a `ky` timeout. `@wexample/js-api-entity` adds the `api.envelope`, `api.schema` and `api.live-updates` kinds.
 
 ### The Vue layer
 
-The mixins in src/Vue are plain option objects, composed by `mixins: [...]`, and they reach the client through a host-application convention this package does not define: `this['app'].getService('api').client`. `AbstractEntityManipulatorMixin` isolates that lookup in `getEntityManager()` and `getEntityRepository()`; every other entity mixin builds on it. `AbstractEntityCollectionMixin` fetches a list on `mounted`. `AbstractEntitySingleMixin` composes it with `WithAsyncComponentLoadVueMixin` — which owns the `asyncComponentLoaded`/`loading`/`sleeping`/`error` state machine and the `loadAsyncComponent()` promise deduplication — and requires exactly one of the `entityInstance` or `entityId` props, `validateEntitySource()` throwing when both or neither are set.
+The mixins in src/Vue are plain option objects, composed by `mixins: [...]`. `WithAsyncComponentLoadVueMixin` owns the `asyncComponentLoaded`/`loading`/`sleeping`/`error` state machine and the `loadAsyncComponent()` promise deduplication. The entity mixins built on these — collection, single entity, entity forms — live in `@wexample/js-api-entity`.
 
-Forms are split between a controller and a mixin. `VueFormController` implements `FormControllerInterface` and holds the registered `FieldControllerInterface` instances, disabling them all on `beginSubmit()`; it is `provide`d by `AbstractFormMixin` so fields can inject it. The mixin itself handles the submit round-trip: it posts through the API client when one is available and falls back to native `fetch` otherwise, and it routes validation responses — envelopes with `type === 'error'` carrying a `data.summary` — into `formErrors` and `fieldErrors` instead of letting them bubble, using the `context.onError` escape hatch of `AbstractApiClient` so those responses are not reported as errors. `AbstractEntityCollectionFormMixin` adds `submitEntity()`/`submitEntities()` on top, defaulting to the `save` endpoint. `AbstractGraphMixin` is unrelated to the API layer: a `ResizeObserver` publishing `graphWidth`/`graphHeight`.
-
-### Code generation
-
-bin/generate-entities.mjs and bin/generate-repositories.mjs are dependency-free Node scripts that read a directory of entity schema JSON files (`--data-dir`, default `front/data/entity`) and write one class per schema into `--output-dir` (default `front/js`), from the templates in bin/template. Both are additive: an existing target file is skipped, so hand-written methods survive a regeneration. Each run rewrites two manifests — `Common/generatedEntitySchemas.ts` and `Common/generatedRepositories.ts`, the latter being the array a client returns from `getRepositoryClasses()`. A schema carrying a `"package"` key generates nothing and is imported from that package instead, which is how an application reuses entities defined by a shared package.
+Forms are split between a controller and a mixin. `VueFormController` implements `FormControllerInterface` and holds the registered `FieldControllerInterface` instances, disabling them all on `beginSubmit()`; it is `provide`d by `AbstractFormMixin` so fields can inject it. The mixin itself handles the submit round-trip: it posts through the API client when one is available and falls back to native `fetch` otherwise, and it routes validation responses — envelopes with `type === 'error'` carrying a `data.summary` — into `formErrors` and `fieldErrors` instead of letting them bubble, using the `context.onError` escape hatch of `AbstractApiClient` so those responses are not reported as errors. `AbstractGraphMixin` is unrelated to the API layer: a `ResizeObserver` publishing `graphWidth`/`graphHeight`.
 
 ## Integration in the Suite
 
