@@ -1,6 +1,6 @@
 # @wexample/js-api
 
-Version: 8.0.3
+Version: 8.0.4
 
 `@wexample/js-api` is a generic TypeScript client for any JSON API: `AbstractApiClient` wraps `ky` with a base URL, a bearer token, default headers and a `beforeError` hook that maps HTTP failures to `ApiHttpError`, which says whether retrying may help (`isTransient()`). Its `ApiClientOptions` carry the transport policy shared with php-api's `ClientOptions` and the Python `wexample_api` gateway — timeout, retries of idempotent requests, a minimum delay between requests — and `checkConnection()` answers health checks.
 
@@ -69,7 +69,7 @@ Visit the [Wexample Suite documentation](https://docs.wexample.com) for the comp
 
 ## Dependencies
 
-- @wexample/js-helpers: >=3.0.0
+- @wexample/js-helpers: >=4.0.0
 - ky: ^1.4.0
 
 ## Versioning & Compatibility Policy
